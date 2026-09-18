@@ -17,6 +17,9 @@ def Tanh(x: np.ndarray):
 def ReLU(x: np.ndarray):
     return np.maximum(0, x)
 
+def leakyReLU(x:np.ndarray, alpha:float = 0.01):
+    return np.maximum(alpha * x ,x)
+    
 
 # def softmax(x: np.ndarray):  # 这里的x是二维数组
 #     x = x.T
