@@ -29,8 +29,7 @@ class TwoLayerNet:
         a1 = np.dot(x, w1) + b1
         z1 = sigmoid(a1)
         a2 = np.dot(z1, w2) + b2
-        z2 = sigmoid(a2)
-        y = softmax(z2)
+        y = softmax(a2)
         return y
 
     def loss(self, x, t):
