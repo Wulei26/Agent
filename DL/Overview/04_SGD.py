@@ -15,7 +15,7 @@ train_loss_list = []
 train_acc_list = []
 test_acc_list = []
 
-iter_per_epoch = np.ceil(train_size / batch_size)
+iter_per_epoch = int(np.ceil(train_size / batch_size))
 # 总迭代次数 = epoch * iter_per_epoch
 iterations = int(epochs * iter_per_epoch)
 # 外层循环：epoch
