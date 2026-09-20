@@ -124,3 +124,5 @@ def cross_entropy_error(y:np.ndarray,t:np.ndarray):
     ) 
     return loss_sum/ batch_size
 ```
+## 四、反向传播
+反向传播（Backward Propagation或Back Propagation，BP算法）指的是计算神经网络参数梯度的方法。简言之，该方法根据微积分中的链式法则，按相反的顺序从输出层到输入层遍历网络。该算法存储了计算某些参数梯度时所需的任何中间变量
