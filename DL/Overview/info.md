@@ -124,3 +124,4 @@ def cross_entropy_error(y:np.ndarray,t:np.ndarray):
     ) 
     return loss_sum/ batch_size
 ```
+## 四、梯度下降法
