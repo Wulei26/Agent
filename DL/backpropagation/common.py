@@ -125,7 +125,7 @@ class Affine:
 
 def get_data():
     # 加载数据集
-    data = pd.read_csv(r"D:\BaiduNetdiskDownload\DL\2.资料\data\train.csv")
+    data = pd.read_csv("/storage/data/尚硅谷ai/09_尚硅谷AI大模型之深度学习/2.资料/data/train.csv")
     # 划分训练集和测试集
     X = data.drop("label", axis=1)
     y = data["label"]
@@ -212,7 +212,7 @@ class Momentum:
     ):
         self.lr = lr
         self.beta = beta
-        self.v: dict = None  # 记录历史动量
+        self.v: dict = None  # 记录历史梯度
 
     def update(
         self,
@@ -226,7 +226,91 @@ class Momentum:
             self.v = {}
             for key, val in parms.items():
                 self.v[key] = np.zeros_like(val)
-        # 更新梯度
         for key in parms.keys():
+            # 更新历史梯度
             self.v[key] = self.beta * self.v[key] - self.lr * grads[key]
+            # 更新参数
             parms[key] += self.v[key]
+
+class AdaGrad:
+    def __init__(self,beta:0.01):
+        self.beta = beta
+        self.h:dict = None #记录的是历史梯度的平方和
+    def update(self,
+        params:dict, #当前的参数
+        grad:dict, #当前的参数梯度
+    ):
+        if self.h is None:
+            # 初始化
+            self.h = {}
+            for key, value in params.items():
+                self.h[key] = np.zeros_like(value)
+        for key in params.keys():
+            # 加上当前梯度的平方和
+            self.h[key] = grad[key] * grad[key] + self.h[key]
+            # 更新参数
+            params[key] -= self.beta*grad[key] / (np.sqrt(self.h[key]) + 1e-7)
+            ##随着学习的进行 h会越来越大，那么更新的幅度就会越来越小，也就是变相的把学习率减小了
+
+class RMSProp:
+    
+    def __init__(self,
+        alpha:float, ##衰减系数
+        lr:float,
+    ):
+        self.alpha = alpha
+        self.lr = lr
+        self.h:dict = None #记录的是历史梯度的平方和
+    def update(self,
+        params:dict, #当前的参数
+        grad:dict, #当前的参数梯度
+    ):
+        if self.h is None:
+            # 初始化
+            self.h = {}
+            for key, value in grad.items():
+                self.h[key] = np.zeros_like(value)
+        for key in params.keys():
+            # 更新历史梯度
+            self.h[key] *= self.alpha 
+            self.h[key] += (1-self.alpha) * grad[key] **2
+            # 更新参数
+            params[key] -= self.lr*grad[key] / (np.sqrt(self.h[key]) + 1e-7)
+
+class Adam:
+
+    def __init__(self,
+        alpha1:float = 0.9,
+        alpha2:float = 0.999,
+        lr:float = 0.01,
+     ):
+        self.alpha1 = alpha1 #一次动量系数
+        self.alpha2 = alpha2 # 二次动量系数
+        self.lr = lr #学习率
+        self.v:dict = None # 当前的v
+        self.h:dict = None # 当前h
+        self.i:int = 0 #当前的迭代次数
+    
+    def update(self,
+        params:dict, #当前的参数
+        grads:dict, #当前的参数梯度
+    ):
+        if self.v is None or self.h is None:
+            # 初始化
+            self.v = {}
+            self.h = {}
+            for key, value in grads.items():
+                self.v[key] = np.zeros_like(value)
+                self.h[key] = np.zeros_like(value)
+        self.i += 1 #注意这是总的迭代次数，不是每个epoch的迭代次数
+        for key, value in params.items():
+            # 更新v
+            self.v[key] *= self.alpha1
+            self.v[key] += (1 - self.alpha1) * grads[key]
+            # 更新h
+            self.h[key] *= self.alpha2
+            self.h[key] += (1 - self.alpha2) * grads[key] ** 2
+            # 更新参数
+            v_hat = self.v[key] / (1 - self.alpha1 ** self.i)
+            h_hat = self.h[key] / (1 - self.alpha2 ** self.i)
+            params[key] -= self.lr * v_hat / (np.sqrt(h_hat) + 1e-7)

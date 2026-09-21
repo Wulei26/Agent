@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from common import get_data, Momentum
+from common import get_data, Momentum ,AdaGrad,RMSProp,Adam
 from TwoLayerNet import TwoLayerNet
 
 x_train, x_test, y_train, y_test = get_data()
@@ -20,6 +20,9 @@ iter_per_epoch = int(np.ceil(train_size / batch_size))
 iterations = int(epochs * iter_per_epoch)
 # 外层循环：epoch
 momentum = Momentum()
+ada =AdaGrad(beta=0.1)
+rms = RMSProp(alpha=0.8,lr=0.01)
+adam = Adam()
 for epoch in range(epochs):
     """
     1）随机选择批数据（mini-batch）
@@ -42,7 +45,10 @@ for epoch in range(epochs):
         # 3.更新参数，分维度更新
         # for key in ("W1", "b1", "W2", "b2"):
         #     network.params[key] -= learning_rate * grads[key]
-        momentum.update(network.params, grads)
+        # momentum.update(network.params, grads)
+        # ada.update(network.params,grads)
+        # rms.update(network.params,grads)
+        adam.update(network.params, grads)
         # 4.计算当前batch的loss
         loss = network.loss(x_batch, t_batch)
         train_loss_list.append(loss)

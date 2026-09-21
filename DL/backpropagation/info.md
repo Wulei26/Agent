@@ -301,9 +301,9 @@ class SoftmaxWithLoss:
         return dx
 ```
 # 三、神经网络的训练优化
-#### 3.1 梯度消失和梯度爆炸
+### 3.1 梯度消失和梯度爆炸
  在某些神经网络中，随着网络深度的增加，梯度在隐藏层反向传播时倾向于变小。这就意味着，前面隐藏层中的神经元要比后面的学习起来更慢。这种现象被称为“梯度消失”;反之梯度在传递的过程中越变越大，导致参数振荡，训练不稳定。这也是为什么深层神经网络后来会使用 ReLU、He 初始化、BatchNorm、残差连接等方法来缓解这些问题。
-##### 3.1.1 SGD（随机梯度下降）
+#### 3.1.1 SGD（随机梯度下降）
 
 **公式**
 
@@ -334,8 +334,8 @@ class SGD:
         for key in params.keys():
             params[key] = params[key] - self.lr * grad[key]
 ```
-##### 3.1.2  动量法 Momentum
-保存历史梯度，Momentum 就是在 SGD 基础上给参数更新加一个"速度"变量，用 v = β*v + grad 累积历史梯度，再  w = w - lr*v 更新，从而加速同向更新、抑制反向震荡，收敛更快更稳。
+#### 3.1.2  动量法 Momentum
+保存历史梯度，Momentum 就是在 SGD 基础上给参数更新加一个"速度"变量，用 `v = β*v + grad `累积历史梯度，再  `w = w - lr*v `更新，从而加速同向更新、抑制反向震荡，收敛更快更稳。
 $$
 v_{t+1} = \beta \, v_t + g_t
 $$
@@ -380,5 +380,190 @@ class Momentum:
             parms[key] += self.v[key]
 
 ```
-#### 3.2 学习率衰减
-深度学习模型训练中调整最频繁的当属学习率，好的学习率可以使模型逐渐收敛并获得更好的精度。较大的学习率可以加快收敛速度，但可能在最优解附近震荡或不收敛；较小的学习率可以提高收敛的精度，但训练速度慢。学习率衰减是一种平衡策略，初期使用较大学习率快速接近最优解，后期逐渐减小学习率，使参数更稳定地收敛到最优解。
+#### 3.1.3 学习率衰减
+深度学习模型训练中调整最频繁的当属学习率，好的学习率可以使模型逐渐收敛并获得更好的精度。较大的学习率可以加快收敛速度，但可能在最优解附近震荡或不收敛；较小的学习率可以提高收敛的精度，但训练速度慢。**学习率衰减是一种平衡策略，初期使用较大学习率快速接近最优解，后期逐渐减小学习率，使参数更稳定地收敛到最优解。**
+- 等间隔衰减：比如学习率每隔20个epoch就衰减为之前的0.7
+- 指定间隔衰减：在指定的epoch，让学习率按照一定系数进行衰减，比如在epoch达到[10，50，200] 达到这些epoch的时候，学习率就衰减为原来的0.7
+- 指数衰减：让学习率按照指数进行衰减，比如每一个epoch学习率衰减为原来的原来的0.99，这样学习率就会原来越小
+
+#### 3.1.4 AdaGrad（Adaptive Gradient，自适应梯度）
+**为每个参数适当地调整学习率，并且伴随着学习的进行，学习率会逐渐减小**
+$$
+h \leftarrow h + \nabla^2
+$$
+
+$$
+W \leftarrow W - \eta \frac{1}{\sqrt{h}} \nabla
+$$
+> h：历史梯度的平方和
+> 这里 ∇2 就表示了梯度的平方和，即 ∂L∂W ⊙ ∂L∂W ，这里的 ⊙ 表示对应矩阵元素的乘法。
+>使用AdaGrad时，学习越深入，更新的幅度就越小。如果无止境地学习，更新量就会变为0，完全不再更新。 
+
+代码实现：
+```python
+class AdaGrad:
+    def __init__(self,beta:0.01):
+        self.beta = beta #初始学习率
+        self.h:dict = None #记录的是历史梯度的平方和
+    def update(self,
+        params:dict, #当前的参数
+        grad:dict, #当前的参数梯度
+    ):
+        if self.h is None:
+            # 初始化
+            self.h = {}
+            for key, value in params.items():
+                self.h[key] = np.zeros_like(value)
+        for key in params.keys():
+            # 加上当前梯度的平方和
+            self.h[key] = grad[key] * grad[key] + self.h[key]
+            # 更新参数
+            params[key] -= self.beta*grad[key] / (np.sqrt(self.h[key]) + 1e-7)
+            ##随着学习的进行 h会越来越大，那么更新的幅度就会越来越小，也就是变相的把学习率减小了
+```
+#### 3.1.5 RMSProp（Root Mean Square Propagation，均方根传播）
+在AdaGrad基础上的改进，它并非将过去所有梯度一视同仁的相加，而是逐渐遗忘过去的梯度，采用指数移动加权平均，呈指数地减小过去梯度的尺度。有点像结合结合了Mountent和Adagrad的一种优化方法
+$$
+h \leftarrow \alpha h + (1 - \alpha) \nabla^2
+$$
+
+$$
+W \leftarrow W - \eta \frac{1}{\sqrt{h}} \nabla
+$$
+
+- \(h\)：历史梯度平方和的指数移动加权平均
+- \(\alpha\)：权重
+
+实现：
+```python
+class RMSProp:
+    
+    def __init__(self,
+        alpha:float, ##衰减系数
+        lr:float,
+    ):
+        self.alpha = alpha
+        self.lr = lr
+        self.h:dict = None #记录的是历史梯度的平方和
+    def update(self,
+        params:dict, #当前的参数
+        grad:dict, #当前的参数梯度
+    ):
+        if self.h is None:
+            # 初始化
+            self.h = {}
+            for key, value in params.items():
+                self.h[key] = np.zeros_like(value)
+        for key in params.keys():
+            # 更新历史梯度
+            self.h[key] *= self.alpha 
+            self.h[key] += (1-self.alpha) * grad[key] **2
+            # 更新参数
+            params[key] -= self.lr*grad[key] / (np.sqrt(self.h[key]) + 1e-7)
+```
+#### 3.1.6 Adam（Adaptive Moment Estimation，自适应矩估计）
+**Adam 算法本质上是Momentum（动量法）和 RMSProp（均方根传播**）这两种优化算法思想的集大成者，同时加入了独特的偏差校正（Bias Correction）机制。
+$$
+v \leftarrow \alpha_1 v + (1 - \alpha_1) \nabla
+$$
+
+$$
+h \leftarrow \alpha_2 h + (1 - \alpha_2) \nabla^2
+$$
+
+$$
+\hat{v} = \frac{v}{1 - \alpha_1^t}
+$$
+
+$$
+\hat{h} = \frac{h}{1 - \alpha_2^t}
+$$
+
+$$
+W \leftarrow W - \eta \frac{\hat{v}}{\sqrt{\hat{h}}}
+$$
+
+- η：学习率
+- α1、α2：一次动量系数和二次动量系数(都属于[0,1],但更接近于1)
+- t：迭代次数，从1开始
+实现：
+```python
+class Adam:
+
+    def __init__(self,
+        alpha1:float = 0.9,
+        alpha2:float = 0.999,
+        lr:float = 0.01,
+     ):
+        self.alpha1 = alpha1 #一次动量系数
+        self.alpha2 = alpha2 # 二次动量系数
+        self.lr = lr #学习率
+        self.v:dict = None # 当前的v
+        self.h:dict = None # 当前h
+        self.i:int = 0 #当前的迭代次数
+    
+    def update(self,
+        params:dict, #当前的参数
+        grads:dict, #当前的参数梯度
+    ):
+        if self.v is None or self.h is None:
+            # 初始化
+            self.v = {}
+            self.h = {}
+            for key, value in grads.items():
+                self.v[key] = np.zeros_like(value)
+                self.h[key] = np.zeros_like(value)
+        self.i += 1 #注意这是总的迭代次数，不是每个epoch的迭代次数
+        for key, value in params.items():
+            # 更新v
+            self.v[key] *= self.alpha1
+            self.v[key] += (1 - self.alpha1) * grads[key]
+            # 更新h
+            self.h[key] *= self.alpha2
+            self.h[key] += (1 - self.alpha2) * grads[key] ** 2
+            # 更新参数
+            v_hat = self.v[key] / (1 - self.alpha1 ** self.i)
+            h_hat = self.h[key] / (1 - self.alpha2 ** self.i)
+            params[key] -= self.lr * v_hat / (np.sqrt(h_hat) + 1e-7)
+```
+## 3.2 参数初始化
+参数初始化方案的选择在神经网络学习中起着举足轻重的作用，它对保持数值稳定性至关重要。此外，这些初始化方案的选择可以与激活函数的选择有趣的结合在一起。我们选择哪个激活函数以及如何初始化参数，可以决定优化算法收敛的速度有多快；糟糕选择可能会导致我们在训练时遇到梯度爆炸或梯度消失。
+#### 3.2.1 常数初始化
+注意：将权重初始值设为0将无法正确进行学习。严格地说，不能将权重初始值设成一样的值。因为这意味着反向传播时权重全部都会进行相同的更新，被更新为相同的值（对称的值）。这使得神经网络拥有许多不同的权重的意义丧失了。为了防止“权重均一化”（瓦解权重的对称结构），必须随机生成初始值。
+#### 3.2.2 秩初始化
+权重参数初始化为单位矩阵，即
+$$
+W=I
+$$
+这里I为单位矩阵，即主对角线上元素为1，其它元素为0。
+#### 3.2.3 正态分布初始化
+权重参数按指定均值μ与标准差σ正态分布初始化。因为不能直接将权重初始化为相同的常数，所以需要对参数进行随机初始化。最常见的随机分布就是 正态分布（也叫 高斯分布），记作 X ~ N(μ, σ2)。
+#### 3.2.4 均匀分布初始化
+权重参数在指定区间内均匀分布初始化。均匀分布一般记作 X ~ U(a, b)。
+#### 3.2.5 Xavier 初始化（Glorot 初始化）
+Xavier 初始化根据输入和输出的神经元数量调整权重的初始范围，确保每一层的输出方差与输入方差相近。
+
+Xavier 正态分布初始化：均值为 0，标准差为 \(\sqrt{\frac{2}{n_{in} + n_{out}}}\) 的正态分布。
+
+Xavier 均匀分布初始化：区间 \(\left[ -\sqrt{\frac{6}{n_{in} + n_{out}}}, \sqrt{\frac{6}{n_{in} + n_{out}}} \right]\) 内均匀分布。
+
+其中 \(n_{in}\) 表示输入数，\(n_{out}\) 表示输出数。
+
+**Xavier初始化参数适用于Sigmoid和Tanh等激活函数，能有效缓解梯度消失或爆炸问题。**
+#### 3.2.6 He初始化（Kaiming初始化）
+He 初始化根据输入的神经元数量调整权重的初始范围。
+
+He 正态分布初始化：均值为 0，标准差为 \(\sqrt{\frac{2}{n_{in}}}\) 的正态分布。
+
+He 均匀分布初始化：区间 \(\left[ -\sqrt{\frac{6}{n_{in}}}, \sqrt{\frac{6}{n_{in}}} \right]\) 内均匀分布。
+
+其中 \(n_{in}\) 表示输入数。
+
+He 初始化参数主要适用于 ReLU 及其变体（如 Leaky ReLU）激活函数。
+## 3.3 正则化
+机器学习的问题中，过拟合 是一个很常见的问题。
+过拟合指的是能较好拟合训练数据，但不能很好地拟合不包含在训练数据中的其他数据。机器学习的目标是提高泛化能力，希望即便是不包含在训练数据里的未观测数据，模型也可以进行正确的预测。因此可以通过 正则化 方法来抑制过拟合。
+常用的正则化方法有Batch Normalization、权值衰减、Dropout、早停法等。
+- **Batch Normalization批量标准化**
+- **权值衰减**
+- **Dropout 随机失活**：训练时以概率p随机关闭神经元，迫使网络不依赖特定神经元，增强鲁棒性，同时未被关闭的神经元的输出值以1/（1−p）的比例进行缩放，以保持期望值不变；而测试时通常不使用Dropout，即所有神经元保持激活状态并且不进行缩放。**通常放在激活函数之后，线性层（全连接层/卷积层）之前**
