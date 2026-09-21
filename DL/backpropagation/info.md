@@ -1,9 +1,10 @@
+# 一 、反向传播
 以数字识别为例
-![alt text](image.png)
-![alt text](image-1.png)
+![alt text](../assets/../assets/image.png)
+![alt text](../assets/../assets/image-1.png)
 ## 二、激活层的反向传播
 ### 2.1 Relu的反向传播
-![alt text](image-2.png)
+![alt text](../assets/image-2.png)
 ```python
 import numpy as np
 
@@ -28,9 +29,9 @@ class ReLU:
         dx = dout.copy()
         return dx
 ```
-![alt text](image-3.png)
+![alt text](../assets/image-3.png)
 ### 2.2 Sigmoid 的反向传播
-![alt text](image-4.png)
+![alt text](../assets/image-4.png)
 ```python
 class Sigmoid:
 
@@ -47,7 +48,7 @@ class Sigmoid:
         dx = dout * (1.0 - self.out) * self.out
         return dx
 ```
-![alt text](image-5.png)
+![alt text](../assets/image-5.png)
 x不是参数x，而是输入到Sigmoid函数的向量/矩阵
 ### 2.3 Affine的反向传播和实现
 在全连接层（Fully Connected Layer，Dense Layer）中，每个输入节点与输出节点相连，通过权重矩阵和偏置进行线性变换，这种操作在几何领域称为仿射变换（Affine transformation，几何中，仿射变换包括一次线性变换和一次平移，分别对应神经网络的加权求和运算与加偏置运算）。
@@ -147,10 +148,11 @@ class Affine:
         return dx.reshape(*self.original_x_shape)
 ```
 ### 2.4 Softmax 的反向传播极其实现
-![alt text](image-6.png)
-![alt text](image-7.png)
-![alt text](image-8.png)
+![alt text](../assets/image-6.png)
+![alt text](../assets/image-7.png)
+![alt text](../assets/image-8.png)
 这是经过softmax函数和交叉熵损失函数的示意图
+```
 Z2
  ↓
 Softmax
@@ -160,6 +162,7 @@ y
 Cross Entropy
  ↓
 Loss (L)
+```
 我们这里实际上要求的是
 $$
 \frac{\partial L}{\partial Z2}
@@ -297,3 +300,4 @@ class SoftmaxWithLoss:
             dx = dx / batch_size
         return dx
 ```
+# 三、神经网络的训练优化

@@ -183,7 +183,6 @@ class SoftmaxWithLoss:
             dx = (self.y - self.t) / batch_size
         else:
             # t如果是类别下标,这里其实就是巧妙的将类别下标转化为了One-hot,直接用类别作为下标去取y中的值，对应的就是正确标签，如果是独热编码，那么t这个位置的值就是1,  所以这里才会减去1。非常巧妙
-            # t如果是类别下标,这里其实就是巧妙的将类别下标转化为了One-hot,直接用类别作为下标去取y中的值，对应的就是正确标签，如果是独热编码，那么t这个位置的值就是1,  所以这里才会减去1。非常巧妙
             dx = self.y.copy()
             dx[np.arange(batch_size), self.t] -= 1
             dx = dx / batch_size

@@ -9,7 +9,7 @@ network = TwoLayerNet(input_size=784, hidden_size=50, output_size=10)
 epochs = 100
 train_size = x_train.shape[0]  # 训练集样本总数
 batch_size = 64
-learning_rate = 0.01
+learning_rate = 0.1
 
 train_loss_list = []
 train_acc_list = []
@@ -33,7 +33,7 @@ for epoch in range(epochs):
     # 内层循环：一个 epoch 中的 mini-batch
     for i in range(iter_per_epoch):
         # 1.随机选取一个minibatch
-        batch_mask = np.random.choice(train_size, batch_size)
+        batch_mask = np.random.choice(train_size, batch_size)  # 这里相当于是有放回的取出样本
         x_batch = x_train[batch_mask]
         t_batch = y_train[batch_mask]
         # 2.计算梯度
