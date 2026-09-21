@@ -146,3 +146,154 @@ class Affine:
         # 解包恢复原来的维度
         return dx.reshape(*self.original_x_shape)
 ```
+### 2.4 Softmax 的反向传播极其实现
+![alt text](image-6.png)
+![alt text](image-7.png)
+![alt text](image-8.png)
+这是经过softmax函数和交叉熵损失函数的示意图
+Z2
+ ↓
+Softmax
+ ↓
+y
+ ↓
+Cross Entropy
+ ↓
+Loss (L)
+我们这里实际上要求的是
+$$
+\frac{\partial L}{\partial Z2}
+$$
+​
+神奇的地方就在于：
+$$
+\frac{\partial L}{\partial Z_2} = \frac{y - t}{B}
+$$
+其中 t 必须是 One-Hot：
+>  y = [0.1, 0.7, 0.2]
+t = [0,   1,   0]
+这里的B就是batch_size
+
+**推导过程：**
+这是 Softmax + Cross Entropy 最经典的结论：
+
+$$
+L = -\sum_j t_j \log y_j
+$$
+
+Softmax：
+
+$$
+y_j = \frac{e^{z_j}}{\sum_k e^{z_k}}
+$$
+
+把 Softmax 代入交叉熵：
+
+$$
+L = -\sum_j t_j \log \frac{e^{z_j}}{\sum_k e^{z_k}}
+$$
+
+展开：
+
+$$
+L = -\sum_j t_j z_j + \log \sum_k e^{z_k}
+$$
+
+对 $z_j$ 求导：
+
+$$
+\frac{\partial L}{\partial z_j} = -t_j + \frac{e^{z_j}}{\sum_k e^{z_k}}
+$$
+
+而后面这一项正好就是：
+
+$$
+y_j
+$$
+
+所以：
+
+$$
+\boxed{\frac{\partial L}{\partial z_j} = y_j - t_j}
+$$
+
+如果你的 Loss 是 batch 平均：
+
+$$
+\boxed{D_2 = \frac{y - t}{B}}
+$$
+
+这就是你之前看到的 **为什么 $D_2 = Y - T$ 的来源**。
+
+如果t不是独热编码怎么办？那也很简单，那么此时就把t当成下标不就行了，比如t=[1,0,2],那么，t作为下标在y中的取值不就是正确标签对应的概率嘛
+``` 
+                 t 是类别下标
+                       |
+                       ↓
+                   [1, 0, 2]
+                       |
+                       ↓
+                 相当于 One-Hot
+                       |
+                       ↓
+Y — Softmax —> Y — Cross Entropy —> L
+↑
+|___ 反向传播
+     |
+     ↓
+dZ = (Y - T) / B
+```
+代码实现：
+```python
+class SoftmaxWithLoss:
+    @staticmethod
+    def softmax(x: np.ndarray):  # 这里的x是二维数组
+        x = x - np.max(x, axis=1, keepdims=True)
+        exp_x = np.exp(x)
+        y = exp_x / np.sum(exp_x, axis=1, keepdims=True)
+        return y
+
+    @staticmethod
+    def cross_entropy_error(y: np.ndarray, t: np.ndarray):
+
+        if y.ndim == 1:  # 如果是输入一个样本，那么还是将其转化为二维矩阵
+            y = y.reshape(1, y.size)
+            t = t.reshape(1, t.size)
+        if t.size == y.size:  # 也就是说经过了独热编码
+            # 转换
+            t = t.argmax(axis=1)  # 返回的是最大值所在的索引（下标）
+        batch_size = t.shape[0]
+        loss_sum = -np.sum(np.log(y[np.arange(batch_size), t] + 1e-7))
+        return loss_sum / batch_size
+
+    def __init__(self):
+        self.loss = None
+        self.y = None  # 这是softmax的输出
+        self.t = None  ##这是正确的标签，这里采用独热编码
+
+    def forward(
+        self,
+        x: np.ndarray,
+        t: np.ndarray,
+    ):
+        self.t = t
+        self.y = __class__.softmax(x)
+        self.loss = __class__.cross_entropy_error(self.y, t)
+        return self.loss
+
+    def backward(
+        self,
+        dout=1.0,  # 这个dout 是上一层传递过来的梯度，但是我们这里是把SoftmaxWithLoss作为一个整体，所以上一层传递过来的梯度就是DL/DL = 1
+    ):
+        batch_size = self.t.shape[0]
+        if self.t.size == self.y.size:
+            # t 是One-hot
+            dx = (self.y - self.t) / batch_size
+        else:
+            # t如果是类别下标,这里其实就是巧妙的将类别下标转化为了One-hot,直接用类别作为下标去取y中的值，对应的就是正确标签，如果是独热编码，那么t这个位置的值就是1,  所以这里才会减去1。非常巧妙
+            # t如果是类别下标,这里其实就是巧妙的将类别下标转化为了One-hot,直接用类别作为下标去取y中的值，对应的就是正确标签，如果是独热编码，那么t这个位置的值就是1,  所以这里才会减去1。非常巧妙
+            dx = self.y.copy()
+            dx[np.arange(batch_size), self.t] -= 1
+            dx = dx / batch_size
+        return dx
+```
