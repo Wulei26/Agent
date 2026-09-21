@@ -463,6 +463,7 @@ class RMSProp:
 ```
 #### 3.1.6 Adam（Adaptive Moment Estimation，自适应矩估计）
 **Adam 算法本质上是Momentum（动量法）和 RMSProp（均方根传播**）这两种优化算法思想的集大成者，同时加入了独特的偏差校正（Bias Correction）机制。
+
 $$
 v \leftarrow \alpha_1 v + (1 - \alpha_1) \nabla
 $$
