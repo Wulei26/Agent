@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from common import get_data
+from common import get_data, Momentum
 from TwoLayerNet import TwoLayerNet
 
 x_train, x_test, y_train, y_test = get_data()
@@ -19,6 +19,7 @@ iter_per_epoch = int(np.ceil(train_size / batch_size))
 # 总迭代次数 = epoch * iter_per_epoch
 iterations = int(epochs * iter_per_epoch)
 # 外层循环：epoch
+momentum = Momentum()
 for epoch in range(epochs):
     """
     1）随机选择批数据（mini-batch）
@@ -39,8 +40,9 @@ for epoch in range(epochs):
         # 2.计算梯度
         grads = network.gradient(x_batch, t_batch)
         # 3.更新参数，分维度更新
-        for key in ("W1", "b1", "W2", "b2"):
-            network.params[key] -= learning_rate * grads[key]
+        # for key in ("W1", "b1", "W2", "b2"):
+        #     network.params[key] -= learning_rate * grads[key]
+        momentum.update(network.params, grads)
         # 4.计算当前batch的loss
         loss = network.loss(x_batch, t_batch)
         train_loss_list.append(loss)

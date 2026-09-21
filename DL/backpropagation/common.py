@@ -187,3 +187,46 @@ class SoftmaxWithLoss:
             dx[np.arange(batch_size), self.t] -= 1
             dx = dx / batch_size
         return dx
+
+
+class SGD:
+
+    def __init__(self, lr: float):
+        self.lr = lr
+
+    def update(
+        self,
+        params: dict,  # 保存参数的字典
+        grad: dict,  # 保存梯度的字典
+    ):
+        # 参数更新策略 w = w - lr * dw
+        for key in params.keys():
+            params[key] = params[key] - self.lr * grad[key]
+
+
+class Momentum:
+    def __init__(
+        self,
+        lr: float = 0.01,
+        beta: float = 0.9,
+    ):
+        self.lr = lr
+        self.beta = beta
+        self.v: dict = None  # 记录历史动量
+
+    def update(
+        self,
+        parms: dict,  # 当前参数
+        grads: dict,  # 当前梯度
+    ):
+        # v = β*v + grad
+        # W← W + v
+        # 初始状态（历史梯度为0）
+        if self.v is None:
+            self.v = {}
+            for key, val in parms.items():
+                self.v[key] = np.zeros_like(val)
+        # 更新梯度
+        for key in parms.keys():
+            self.v[key] = self.beta * self.v[key] - self.lr * grads[key]
+            parms[key] += self.v[key]

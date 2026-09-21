@@ -301,3 +301,84 @@ class SoftmaxWithLoss:
         return dx
 ```
 # 三、神经网络的训练优化
+#### 3.1 梯度消失和梯度爆炸
+ 在某些神经网络中，随着网络深度的增加，梯度在隐藏层反向传播时倾向于变小。这就意味着，前面隐藏层中的神经元要比后面的学习起来更慢。这种现象被称为“梯度消失”;反之梯度在传递的过程中越变越大，导致参数振荡，训练不稳定。这也是为什么深层神经网络后来会使用 ReLU、He 初始化、BatchNorm、残差连接等方法来缓解这些问题。
+##### 3.1.1 SGD（随机梯度下降）
+
+**公式**
+
+$$
+w_{t+1} = w_t - \eta \, g_t
+$$
+
+其中：
+
+- $w_t$：第 $t$ 步的参数
+- $\eta$：学习率（lr）
+- $g_t$：第 $t$ 步的梯度 $\nabla L(w_t)$
+
+**实现：**
+
+```python
+class SGD:
+
+    def __init__(self, lr: float):
+        self.lr = lr
+
+    def update(
+        self,
+        params: dict,  # 保存参数的字典
+        grad: dict,  # 保存梯度的字典
+    ):
+        # 参数更新策略 w = w - lr * dw
+        for key in params.keys():
+            params[key] = params[key] - self.lr * grad[key]
+```
+##### 3.1.2  动量法 Momentum
+保存历史梯度，Momentum 就是在 SGD 基础上给参数更新加一个"速度"变量，用 v = β*v + grad 累积历史梯度，再  w = w - lr*v 更新，从而加速同向更新、抑制反向震荡，收敛更快更稳。
+$$
+v_{t+1} = \beta \, v_t + g_t
+$$
+
+$$
+w_{t+1} = w_t - \eta \, v_{t+1}
+$$
+
+其中：
+
+- $v_t$：第 $t$ 步的速度（累积梯度）
+- $\beta$：动量系数（通常取 $0.9$）
+- $\eta$：学习率
+- $g_t$：第 $t$ 步的梯度 $\nabla L(w_t)$
+**实现：**
+```python
+class Momentum:
+    def __init__(
+        self,
+        lr: float = 0.01,
+        beta: float = 0.9,
+    ):
+        self.lr = lr
+        self.beta = beta
+        self.v: dict = None  # 记录历史动量
+
+    def update(
+        self,
+        parms: dict,  # 当前参数
+        grads: dict,  # 当前梯度
+    ):
+        # v = β*v + grad
+        # W← W + v
+        # 初始状态（历史梯度为0）
+        if self.v is None:
+            self.v = {}
+            for key, val in parms.items():
+                self.v[key] = np.zeros_like(val)
+        # 更新梯度
+        for key in parms.keys():
+            self.v[key] = self.beta * self.v[key] - self.lr * grads[key]
+            parms[key] += self.v[key]
+
+```
+#### 3.2 学习率衰减
+深度学习模型训练中调整最频繁的当属学习率，好的学习率可以使模型逐渐收敛并获得更好的精度。较大的学习率可以加快收敛速度，但可能在最优解附近震荡或不收敛；较小的学习率可以提高收敛的精度，但训练速度慢。学习率衰减是一种平衡策略，初期使用较大学习率快速接近最优解，后期逐渐减小学习率，使参数更稳定地收敛到最优解。
