@@ -1,7 +1,7 @@
 # 使用反向传播对数字识别进行优化
 import numpy as np
 from collections import OrderedDict
-from common import Affine, ReLU, SoftmaxWithLoss, get_data
+from common import Affine, ReLU, SoftmaxWithLoss, Sigmoid
 
 
 class TwoLayerNet:
