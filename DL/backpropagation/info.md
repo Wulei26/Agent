@@ -544,22 +544,21 @@ $$
 #### 3.2.5 Xavier 初始化（Glorot 初始化）
 Xavier 初始化根据输入和输出的神经元数量调整权重的初始范围，确保每一层的输出方差与输入方差相近。
 
-Xavier 正态分布初始化：均值为 0，标准差为 \(\sqrt{\frac{2}{n_{in} + n_{out}}}\) 的正态分布。
+Xavier 正态分布初始化：均值为 0，标准差为 $\sqrt{\frac{2}{n_{in} + n_{out}}}$ 的正态分布。
 
-Xavier 均匀分布初始化：区间 \(\left[ -\sqrt{\frac{6}{n_{in} + n_{out}}}, \sqrt{\frac{6}{n_{in} + n_{out}}} \right]\) 内均匀分布。
+Xavier 均匀分布初始化：区间 $\left[ -\sqrt{\frac{6}{n_{in} + n_{out}}}, \sqrt{\frac{6}{n_{in} + n_{out}}} \right]$ 内均匀分布。
 
-其中 \(n_{in}\) 表示输入数，\(n_{out}\) 表示输出数。
+其中 $n_{in}$ 表示输入数，$n_{out}$ 表示输出数。
 
 **Xavier初始化参数适用于Sigmoid和Tanh等激活函数，能有效缓解梯度消失或爆炸问题。**
 #### 3.2.6 He初始化（Kaiming初始化）
 He 初始化根据输入的神经元数量调整权重的初始范围。
 
-He 正态分布初始化：均值为 0，标准差为 \(\sqrt{\frac{2}{n_{in}}}\) 的正态分布。
+He 正态分布初始化：均值为 0，标准差为 $\sqrt{\frac{2}{n_{in}}}$ 的正态分布。
 
-He 均匀分布初始化：区间 \(\left[ -\sqrt{\frac{6}{n_{in}}}, \sqrt{\frac{6}{n_{in}}} \right]\) 内均匀分布。
+He 均匀分布初始化：区间 $\left[ -\sqrt{\frac{6}{n_{in}}}, \sqrt{\frac{6}{n_{in}}} \right]$ 内均匀分布。
 
-其中 \(n_{in}\) 表示输入数。
-
+其中 $n_{in}$ 表示输入数。
 He 初始化参数主要适用于 ReLU 及其变体（如 Leaky ReLU）激活函数。
 ## 3.3 正则化
 机器学习的问题中，过拟合 是一个很常见的问题。
