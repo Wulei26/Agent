@@ -151,6 +151,7 @@ class Affine:
 ![alt text](../assets/image-6.png)
 ![alt text](../assets/image-7.png)
 ![alt text](../assets/image-8.png)
+
 这是经过softmax函数和交叉熵损失函数的示意图
 ```
 Z2
@@ -163,16 +164,11 @@ Cross Entropy
  ↓
 Loss (L)
 ```
-我们这里实际上要求的是
-$$
-\frac{\partial L}{\partial Z2}
-$$
-​
-神奇的地方就在于：
-$$
-\frac{\partial L}{\partial Z_2} = \frac{y - t}{B}
-$$
-其中 t 必须是 One-Hot：
+我们这里实际上要求的是 $\frac{\partial L}{\partial Z_2}$
+
+神奇的地方就在于：$\frac{\partial L}{\partial Z_2} = \frac{y - t}{B}$
+
+其中 $t$ 必须是 One-Hot
 >  y = [0.1, 0.7, 0.2]
 t = [0,   1,   0]
 这里的B就是batch_size
@@ -336,6 +332,7 @@ class SGD:
 ```
 #### 3.1.2  动量法 Momentum
 保存历史梯度，Momentum 就是在 SGD 基础上给参数更新加一个"速度"变量，用 `v = β*v + grad `累积历史梯度，再  `w = w - lr*v `更新，从而加速同向更新、抑制反向震荡，收敛更快更稳。
+
 $$
 v_{t+1} = \beta \, v_t + g_t
 $$
@@ -388,6 +385,7 @@ class Momentum:
 
 #### 3.1.4 AdaGrad（Adaptive Gradient，自适应梯度）
 **为每个参数适当地调整学习率，并且伴随着学习的进行，学习率会逐渐减小**
+
 $$
 h \leftarrow h + \nabla^2
 $$
