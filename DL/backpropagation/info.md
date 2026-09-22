@@ -166,11 +166,9 @@ Loss (L)
 ```
 我们这里实际上要求的是 $\frac{\partial L}{\partial Z_2}$
 
-神奇的地方就在于：$\frac{\partial L}{\partial Z_2} = \frac{y - t}{B}$
-
-其中 $t$ 必须是 One-Hot
+神奇的地方就在于 $\frac{\partial L}{\partial Z_2} = \frac{y - t}{B}$  其中 $t$ 必须是 One-Hot
 >  y = [0.1, 0.7, 0.2]
-t = [0,   1,   0]
+>t = [0,   1,   0]
 这里的B就是batch_size
 
 **推导过程：**
@@ -420,7 +418,8 @@ class AdaGrad:
             ##随着学习的进行 h会越来越大，那么更新的幅度就会越来越小，也就是变相的把学习率减小了
 ```
 #### 3.1.5 RMSProp（Root Mean Square Propagation，均方根传播）
-在AdaGrad基础上的改进，它并非将过去所有梯度一视同仁的相加，而是逐渐遗忘过去的梯度，采用指数移动加权平均，呈指数地减小过去梯度的尺度。有点像结合结合了Mountent和Adagrad的一种优化方法
+在AdaGrad基础上的改进，它并非将过去所有梯度一视同仁的相加，而是逐渐遗忘过去的梯度，采用指数移动加权平均，呈指数地减小过去梯度的尺度。有点像结合结合了Mountent和Adagrad
+
 $$
 h \leftarrow \alpha h + (1 - \alpha) \nabla^2
 $$
