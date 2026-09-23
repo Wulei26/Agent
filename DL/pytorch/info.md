@@ -312,3 +312,53 @@ BatchNorm 可以让不同批次的数据分布更加稳定，减少训练过程�
 **批量标准化（BatchNorm）**：主要用于稳定数据分布、加速收敛，虽然具有一定的正则化效果，但主要目的不是正则化；通常作为网络中的独立层使用。
 
 因此，三者都可能改善模型的泛化能力，但 Dropout 和权值衰减属于典型正则化方法，而 BatchNorm 主要是一种训练稳定化方法。
+
+### 2.3 pytorch构建神经网络
+#### 2.3.1自定义模型
+在神经网络框架中，由多个层组成的组件称之为 模块（Module）。
+在PyTorch中模型就是一个Module，各网络层、模块也是Module。Module是所有神经网络的基类。
+在定义一个Module时，我们需要继承torch.nn.Module并主要实现两个方法：
+__init__：定义网络各层的结构，并初始化参数。
+forward：根据输入进行前向传播，并返回输出。计算其输出关于输入的梯度，可通过其反向传播函数进行访问（通常自动发生）。forward方法是每次调用的具体实现。
+接下来使用PyTorch实现下图的神经网络：
+![alt text](../assets/simple_nn.png)
+第1个隐藏层：使用Xavier正态分布初始化权重，激活函数使用Tanh。
+第2个隐藏层：使用He正态分布初始化权重，激活函数使用ReLU。
+输出层：按默认方式初始化，激活函数使用Softmax。
+
+```python
+import torch
+import torch.nn as nn
+
+class Model(nn.Module):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 第一层3个输入四个输出的全连接层
+        self.linear1 = nn.Linear(3,4)
+        nn.init.xavier_normal_(self.linear1.weight)
+        self.linear2 = nn.Linear(4,4)
+        nn.init.kaiming_normal_(self.linear2.weight)
+        self.out = nn.Linear(4,2) # 默认使用He均匀分布初始化
+
+    def forward(self,x):
+        x = self.linear1(x)
+        x = torch.tanh(x)
+        x = self.linear2(x)
+        x = torch.relu(x)
+        x = self.out(x)
+        x = torch.softmax(x, dim=1)
+        return x
+
+model = Model()
+output = model(torch.randn(10, 3))
+
+print("输出：\n", output)
+print()
+# 使用named_parameters()查看各层参数
+print("模型参数：")
+for name, param in model.named_parameters():
+    print(name, param)
+    print()
+# 使用state_dict()查看各层参数
+print("模型参数：\n", model.state_dict())
+```
