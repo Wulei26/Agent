@@ -83,30 +83,63 @@ optimizer.step()
 > 这种思路会出现在冻结某部分网络、Teacher-Student、GAN、目标网络等场景中。
 
 ```python
-X = torch.full((2, 2), 2.0, requires_grad=True)
-Y = X * X
+import torch
+import matplotlib.pyplot as plt
+from torch import nn, optim
+from torch.utils.data import TensorDataset,DataLoader
+"""
+通过PyTorch训练一个模型一般分为以下4个步骤：
+准备数据 → 构建模型 → 定义损失函数与优化器 → 模型训练
+"""
+#构建数据集
+X = torch.randn(100,1)
+w = torch.tensor(2.5)
+b = torch.tensor(5.2)
+noise = torch.randn(100,1) * 0.5
 
-U = Y.detach() #detach之后，就相当于把Y当成常数了 ，所以Dz/dx = U = X^2 = 4
-Z = U * X
+# 目标函数
+y = w * X + b + noise # 现在我们要通过线性回归来拟合这个函数，看看我的们拟合的和真实的参数的差距
+dataset = TensorDataset(X,y)
+dataloader = DataLoader(
+    dataset=dataset,batch_size=10,shuffle=True # shuffle为是否打乱数据
+)
 
-target = Z.sum()
-# 计算target对X的梯度
-target.backward()
-print(X.grad, X.grad_fn)
+# 2. 构建模型，选择torch中的线性模型
+model = nn.Linear(in_features=1, out_features=1) #线性回归模型，输入一个特征，输出一个特征
+
+# 3. 定义损失函数和优化器
+loss = nn.MSELoss() # 均方误差为损失函数
+optmizer = optim.SGD(model.parameters(), lr=0.001) #定义随机梯度下降
+
+# 4. 训练模型
+loss_lst = []
+for epoch in range(1000):
+    total_loss = 0 #每个epoch的损失
+    train_num = 0 # 这里记录总的训练次数，也就是总共训练了多少个样本
+    for x_train, y_train in dataloader: ##这里拿出来的是一个bach_size大小的元组列表
+        # 这个x_train和y_train是一个batch大小的数据
+        #  4.1 模型预测，前向传播
+        y_pred = model(x_train)
+        # 4.2 计算损失
+        current_loss = loss(y_pred,y_train)
+        train_num += len(x_train)
+        total_loss += current_loss.item()
+        # 4.3 梯度清零，清除上一个batch的历史梯度
+        optmizer.zero_grad()
+        # 4.5 反向传播计算当前batch梯度
+        current_loss.backward()
+        # 4.6 根据梯度更新参数
+        optmizer.step()
+    loss_lst.append(total_loss / train_num)
+print(f"权重 ： {model.weight}, 偏置： {model.bias}") # 打印权重和偏置
+fig ,ax = plt.subplots(nrows=1, ncols=2,figsize = (12,5))
+ax[0].plot(loss_lst)
+ax[0].set_xlabel("epoch")
+ax[0].set_ylabel("loss")
+ax[1].scatter(X,y)
+y_pred = model.forward(X).detach().squeeze().numpy()
+ax[1].plot(X,y_pred,color = 'r')
+plt.show()
+
 ```
-> detach() 之后只是把tensor移出当前计算图，但是当前数据还是共享的，也就是U和Y不是同一个对象但是它们底层公用一个数据
-
-```python
-print(id(U))
-print(id(Y))
-print(id(U.data))
-print(id(Y.data))
-print(id(U.untyped_storage().data_ptr))
-print(id(Y.untyped_storage().data_ptr)) 
-```
-> 1335630432928
-> 1335635651840
-> 1335635608032
-> 1335635608032
-> 1335635608016
-> 1335635613216
+![alt text](../assets/torch_linear_example.png)
