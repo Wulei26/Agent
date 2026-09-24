@@ -555,10 +555,7 @@ $$
 然后更新参数：
 
 $$
-\theta_t =
-\theta_{t-1}
--
-\frac{\eta}{\sqrt{G_t}+\epsilon}g_t
+\theta_t =\theta_{t-1} - \frac{\eta}{\sqrt{G_t}+\epsilon}g_t
 $$
 
 如果某个参数历史梯度一直很大：
@@ -622,10 +619,7 @@ $$
 参数更新：
 
 $$
-\theta_t =
-\theta_{t-1}
--
-\frac{\eta}{\sqrt{v_t}+\epsilon}g_t
+\theta_t =\theta_{t-1} - \frac{\eta}{\sqrt{v_t}+\epsilon}g_t
 $$
 
 旧梯度的影响会随着时间逐渐减小，因此不会像 AdaGrad 那样让学习率无限下降。
@@ -666,10 +660,7 @@ RMSProp
 类似 Momentum：
 
 $$
-m_t =
-\beta_1 m_{t-1}
-+
-(1-\beta_1)g_t
+m_t =\beta_1 m_{t-1} + (1-\beta_1)g_t
 $$
 
 表示梯度的大致方向。
@@ -679,10 +670,7 @@ $$
 类似 RMSProp：
 
 $$
-v_t =
-\beta_2 v_{t-1}
-+
-(1-\beta_2)g_t^2
+v_t = \beta_2 v_{t-1} + (1-\beta_2)g_t^2
 $$
 
 表示梯度大小的变化情况。
@@ -690,24 +678,17 @@ $$
 由于训练初期 $m_t$ 和 $v_t$ 都从 0 开始，需要进行偏差修正：
 
 $$
-\hat m_t =
-\frac{m_t}{1-\beta_1^t}
+\hat m_t = \frac{m_t}{1-\beta_1^t}
 $$
 
 $$
-\hat v_t =
-\frac{v_t}{1-\beta_2^t}
+\hat v_t =\frac{v_t}{1-\beta_2^t}
 $$
 
 最终参数更新：
 
 $$
-\theta_t =
-\theta_{t-1}
--
-\eta
-\frac{\hat m_t}
-{\sqrt{\hat v_t}+\epsilon}
+\theta_t = \theta_{t-1} - \eta\frac{\hat m_t}{\sqrt{\hat v_t}+\epsilon}
 $$
 
 Adam 默认参数通常为：
