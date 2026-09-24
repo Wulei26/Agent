@@ -224,7 +224,7 @@ optimizer = torch.optim.SGD(
 权值衰减可以防止某些权重变得过大，降低模型对训练数据中特定特征的过度依赖，从而**减少过拟合，提高模型的泛化能力**。
 
 > **核心理解：** Dropout 是通过“随机关闭部分神经元”来降低过拟合，而权值衰减是通过“限制权重不要变得过大”来降低过拟合。
-#### 2.3.4 批量标准化
+#### 2.2.4 批量标准化
 批量标准化（Batch Normalization，BatchNorm）是一种对神经网络中间层的数据进行**标准化处理**的方法，可以让数据分布更加稳定，从而使模型训练更加稳定、收敛更快。
 
 训练过程中，BatchNorm 会针对一个 Mini-Batch 的数据，首先计算均值和方差：
@@ -361,3 +361,405 @@ for name, param in model.named_parameters():
 # 使用state_dict()查看各层参数
 print("模型参数：\n", model.state_dict())
 ```
+#### 2.3.2 使用nn.Sequential构建模型
+可以通过torch.nn.Sequential来构建模型，将各层按顺序传入。
+```python
+import torch.nn as nn
+
+model = nn.Sequential(
+    nn.Linear(3,4),
+    nn.Tanh(),
+    nn.Linear(4,4),
+    nn.ReLU(),
+    nn.Linear(4,2),
+    nn.Softmax(dim=1),
+)
+def init_weights(module):
+    if type(module) == nn.Linear:
+        nn.init.xavier_uniform_(module.weight)
+        module.bias.data.fill_(0.01)
+model.apply(init_weights) ## # apply会遍历所有子模块并依次调用函数
+
+print(torch.randn(10, 3))
+output = model(torch.randn(10, 3))
+print("输出：\n", output)
+```
+Sequential类使模型构造变得简单，不必自定义类就可以组合新的架构。然而并不是所有的架构都是简单的顺序架构，当需要更强的灵活性时还是需要自定义模型。
+### 2.4 损失函数
+#### 2.4.1 分类任务的损失函数
+- 二分类任务损失函数 ： 常用二元交叉熵损失函数(Binary Cross-Entry Loss)
+- 多分类任务损失函数 : 多分类常用多类交叉熵损失函数(Categorical Cross-Entropy Loss),它是对每个类别的预测概率与真实标签之间差异的加权平均。
+> 注意：调用torch.nn.CrossEntropyLoss相当于调用了torch.nn.LogSoftmax之后再调用torch.nn.NLLLoss。即使用CrossEntropyLoss时上一层的输出不需要Softmax激活函数，因为该损失函数内会自动处理。
+> 相当于：input (logits) -> LogSoftmax -> NLLLoss -> CrossEntropyLoss
+
+#### 2.4.2 回归任务损失函数
+ - MAE (平均绝对误差 L1 Loss)
+ - MSE (均方误差 L2 Loss)
+ - Smooth L1 ：当误差较小时（$|y_i - \hat{y}_i| < 1$）使用 L2 Loss，使得损失函数平滑可导。当误差较大时（$|y_i - \hat{y}_i| \geq 1$）使用 L1 Loss 降低异常值的影响。
+
+### 2.5 参数更新优化方法
+
+神经网络训练的核心过程之一，就是根据梯度不断更新参数：
+
+$$
+\theta \leftarrow \theta - \Delta \theta
+$$
+
+不同优化器的主要区别，就是如何根据当前梯度和历史梯度计算 $\Delta \theta$。
+
+---
+
+#### 2.5.1. Momentum
+
+**原理**
+普通 SGD 直接沿当前梯度方向更新：
+
+$$
+\theta_t = \theta_{t-1} - \eta g_t
+$$
+
+Momentum（动量法）会额外保存之前的更新方向：
+
+$$
+v_t = \mu v_{t-1} - \eta g_t
+$$
+
+$$
+\theta_t = \theta_{t-1} + v_t
+$$
+
+其中：
+
+* $\eta$：学习率
+* $g_t$：当前梯度
+* $\mu$：动量系数，通常取 `0.9`
+* $v_t$：累积的更新方向
+
+可以理解为给梯度下降加入了“惯性”。如果连续多次梯度方向一致，就会加速前进；如果梯度来回震荡，则可以减弱震荡。
+
+**PyTorch**
+
+```python
+import torch.optim as optim
+
+optimizer = optim.SGD(
+    model.parameters(),
+    lr=0.01,
+    momentum=0.9
+)
+```
+
+---
+
+#### 2.5.2 学习率衰减
+
+训练初期通常希望学习率大一些，快速接近最优区域；训练后期则希望学习率小一些，让参数更新更加精细。
+
+因此可以让学习率随着训练过程逐渐减小。
+
+##### 2.5.2.1 等间隔衰减
+
+每隔固定数量的 epoch，将学习率乘一个衰减系数。
+
+例如每隔 10 个 epoch：
+
+$$
+\eta \leftarrow 0.1\eta
+$$
+
+PyTorch 中使用 `StepLR`：
+
+```python
+optimizer = optim.SGD(model.parameters(), lr=0.1)
+
+scheduler = optim.lr_scheduler.StepLR(
+    optimizer,
+    step_size=10,
+    gamma=0.1
+)
+
+for epoch in range(100):
+
+    train()
+
+    optimizer.step()
+    scheduler.step()
+```
+
+例如：
+
+```text
+epoch 0~9    lr = 0.1
+epoch 10~19  lr = 0.01
+epoch 20~29  lr = 0.001
+```
+
+---
+
+##### 2.5.2.2 指定间隔衰减
+
+有时候不希望固定间隔下降，而是希望在指定 epoch 调整学习率。
+
+例如：
+
+```text
+epoch 30  → 学习率 × 0.1
+epoch 60  → 学习率 × 0.1
+epoch 90  → 学习率 × 0.1
+```
+
+PyTorch 中使用 `MultiStepLR`：
+
+```python
+scheduler = optim.lr_scheduler.MultiStepLR(
+    optimizer,
+    milestones=[30, 60, 90],
+    gamma=0.1
+)
+```
+
+训练：
+
+```python
+for epoch in range(100):
+
+    train()
+
+    optimizer.step()
+    scheduler.step()
+```
+
+因此：
+
+* `StepLR`：固定间隔衰减
+* `MultiStepLR`：在指定 epoch 衰减
+
+> 学习率衰减严格来说不是独立的参数更新算法，而是配合 SGD、Momentum、Adam 等优化器使用的学习率调度策略。
+
+---
+
+### 2.5.3 AdaGrad
+
+**原理**
+
+AdaGrad 的核心思想是：
+
+> **为每一个参数自动调整学习率。**
+
+首先累积历史梯度平方：
+
+$$
+G_t = G_{t-1} + g_t^2
+$$
+
+然后更新参数：
+
+$$
+\theta_t =
+\theta_{t-1}
+-
+\frac{\eta}{\sqrt{G_t}+\epsilon}g_t
+$$
+
+如果某个参数历史梯度一直很大：
+
+$$
+G_t \uparrow
+\Rightarrow
+\frac{\eta}{\sqrt{G_t}} \downarrow
+$$
+
+那么这个参数的实际学习率就会越来越小。
+
+**特点**
+
+优点：
+
+* 每个参数拥有自己的自适应学习率
+* 对稀疏数据比较有效
+
+缺点：
+
+* $G_t$ 会不断累积
+* 学习率可能越来越小，最终几乎无法继续更新
+
+**PyTorch**
+
+```python
+optimizer = optim.Adagrad(
+    model.parameters(),
+    lr=0.01
+)
+```
+
+---
+
+### 2.5.4. RMSProp
+
+**原理**
+
+AdaGrad 最大的问题是：
+
+```text
+历史梯度平方一直累加
+        ↓
+分母越来越大
+        ↓
+学习率越来越小
+```
+
+RMSProp 对这个问题进行了改进。
+
+它不再保存所有历史梯度，而是使用**指数移动平均**：
+
+$$
+v_t =
+\rho v_{t-1}
++
+(1-\rho)g_t^2
+$$
+
+参数更新：
+
+$$
+\theta_t =
+\theta_{t-1}
+-
+\frac{\eta}{\sqrt{v_t}+\epsilon}g_t
+$$
+
+旧梯度的影响会随着时间逐渐减小，因此不会像 AdaGrad 那样让学习率无限下降。
+
+**PyTorch**
+
+```python
+optimizer = optim.RMSprop(
+    model.parameters(),
+    lr=0.001,
+    alpha=0.99
+)
+```
+
+其中 `alpha` 对应公式中的 $\rho$。
+
+---
+
+### 2.5.5 Adam
+
+Adam（Adaptive Moment Estimation）可以理解为结合了：
+
+```text
+Momentum
+   +
+RMSProp
+   ↓
+ Adam
+```
+
+它同时记录梯度的：
+
+1. 一阶矩：梯度的指数移动平均
+2. 二阶矩：梯度平方的指数移动平均
+
+- **一阶矩**
+
+类似 Momentum：
+
+$$
+m_t =
+\beta_1 m_{t-1}
++
+(1-\beta_1)g_t
+$$
+
+表示梯度的大致方向。
+
+- **二阶矩**
+
+类似 RMSProp：
+
+$$
+v_t =
+\beta_2 v_{t-1}
++
+(1-\beta_2)g_t^2
+$$
+
+表示梯度大小的变化情况。
+
+由于训练初期 $m_t$ 和 $v_t$ 都从 0 开始，需要进行偏差修正：
+
+$$
+\hat m_t =
+\frac{m_t}{1-\beta_1^t}
+$$
+
+$$
+\hat v_t =
+\frac{v_t}{1-\beta_2^t}
+$$
+
+最终参数更新：
+
+$$
+\theta_t =
+\theta_{t-1}
+-
+\eta
+\frac{\hat m_t}
+{\sqrt{\hat v_t}+\epsilon}
+$$
+
+Adam 默认参数通常为：
+
+```text
+β1 = 0.9
+β2 = 0.999
+ε  = 1e-8
+```
+
+**PyTorch**
+
+```python
+optimizer = optim.Adam(
+    model.parameters(),
+    lr=0.001,
+    betas=(0.9, 0.999),
+    eps=1e-8
+)
+```
+
+Adam 是目前深度学习中最常用的优化器之一，通常可以作为模型训练时的初始选择。
+
+---
+
+#### 总结
+
+| 方法       | 核心思想               | 主要特点                  |
+| -------- | ------------------ | --------------------- |
+| SGD      | 当前梯度决定更新方向         | 简单，但可能震荡              |
+| Momentum | 累积历史更新方向           | 加速收敛、减少震荡             |
+| 学习率衰减    | 训练过程中逐渐降低学习率       | 前期快、后期精细              |
+| AdaGrad  | 累积历史梯度平方           | 自动调整每个参数的学习率，但后期可能过小  |
+| RMSProp  | 梯度平方的指数移动平均        | 解决 AdaGrad 学习率持续减小的问题 |
+| Adam     | Momentum + RMSProp | 同时考虑梯度方向和梯度尺度         |
+
+它们之间可以简单理解为：
+
+```text
+它们之间可以简单理解为：
+
+SGD
+ │
+ ├── + 历史梯度方向 ─────────────→ Momentum
+ │
+ └── 每个参数自适应学习率 ───────→ AdaGrad
+                                      │
+                                      ↓
+                              RMSProp（指数移动平均）
+                                      │
+Momentum ─────────────────────────────┤
+                                      ↓
+                                    Adam
+```
+
