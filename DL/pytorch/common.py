@@ -3,6 +3,7 @@ import torch.nn as nn
 import numpy as np
 import pandas as pd
 from pathlib import Path
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.impute import SimpleImputer  # 处理缺失值
@@ -13,7 +14,7 @@ from torch.utils.data import TensorDataset, DataLoader
 
 def process_dataset():
     """构建数据集"""
-    data_dir = Path(r"D:\BaiduNetdiskDownload\DL\2.资料\data")
+    data_dir = Path("/storage/data/尚硅谷ai/09_尚硅谷AI大模型之深度学习/2.资料/data")
     data = pd.read_csv(data_dir / "house_prices.csv")
     # 删除ID列
     data.drop(["Id"], axis=1, inplace=True)
@@ -21,7 +22,6 @@ def process_dataset():
     X = data.drop(["SalePrice"], axis=1)
     y = data["SalePrice"]
     # 筛选出数值型特征
-    print(X.dtypes)
     numberical_features = X.select_dtypes(exclude="object").columns
     # 筛选类别信息
     categorical_features = X.select_dtypes(include=["object", "str"]).columns
@@ -79,11 +79,70 @@ def log_rmse(pred, target):
     return torch.sqrt(mse(torch.log(pred), torch.log(target)))
 
 
-if __name__ == "__main__":
-    process_dataset()
-    import pandas as pd
+def init_weight(layer):
+    # 对线性层进行初始化
+    if type(layer) == nn.Linear:
+        nn.init.xavier_normal_(layer.weight)
 
-    print(pd.__version__)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # 看看你的列实际是什么 dtype
-    # print(X.dtypes)
+model = model.to(device)
+
+# 定义超参数
+lr = 0.01
+batch_size = 64
+epochs = 500
+# 定义优化器
+
+train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size,shuffle=True)
+test_loader = DataLoader(dataset=test_dataset,batch_size=batch_size,shuffle=False)
+optimizer = torch.optim.Adam(model.parameters(),lr=lr)
+
+train_loss_lst = [] #每个epoch的平均损失
+test_loss_lst = []
+# 模型训练
+for epoch in range(epochs): 
+
+    model.train()
+    epoch_loss = 0
+    for batch_idx, (X, y) in enumerate(train_loader):
+
+        X,y = X.to(device), y.to(device)
+
+        # 前向传播
+        y_pred = model(X)
+        # 计算损失
+        batch_loss = log_rmse(y_pred,y)
+        # 反向传播
+        batch_loss.backward()
+        # 更新参数
+        optimizer.step()
+        # 梯度清零
+        optimizer.zero_grad()
+        epoch_loss += batch_loss.item() * X.shape[0] # batch_loss * 样本数 = 这个batch的总损失
+    epoch_loss_mean = epoch_loss / len(train_dataset)
+    train_loss_lst.append(epoch_loss_mean)
+    print(f"Epoch { epoch + 1}, train loss : {epoch_loss_mean:.4f}")
+    # print(f"\repoch:{epoch:0>3}[{'='*(int(( batch_idx+1) / len(train_loader)* 50 )):<50}]", end="")
+
+    # 使用测试集进行验证
+    model.eval()
+    val_epoch_loss = 0
+    with torch.no_grad():
+        for X,y in test_loader:
+            X,y = X.to(device), y.to(device)
+            # 前向传播
+            y_pred = model(X)
+            # 计算损失
+            batch_loss = log_rmse(y_pred,y)      
+            val_epoch_loss += batch_loss.item() * X.shape[0] # batch_loss * 样本数 = 这个batch的总损失  
+        val_epoch_loss = val_epoch_loss / len(test_dataset)
+        test_loss_lst.append(val_epoch_loss)
+    print(f"Epoch { epoch + 1}, test loss : {val_epoch_loss:.4f}")
+
+plt.plot(train_loss_lst, "r-",label = " train loss", linewidth = 2)
+plt.plot(test_loss_lst, "k--",label = " val loss", linewidth = 3)
+plt.legend(loc = "best")
+plt.xlabel("epoch")
+plt.ylabel("loss")
+plt.show()
