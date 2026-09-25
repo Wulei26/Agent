@@ -896,4 +896,4 @@ plt.xlabel("epoch")
 plt.ylabel("loss")
 plt.show()
 ```
-![alt text](../assets/price_predict.png)
+![alt text](../assets/house_price_predict_loss.png)
