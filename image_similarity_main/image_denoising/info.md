@@ -7,15 +7,12 @@
 
 ## 1.3 实现原理
 
-$$
-X
-\xrightarrow{+\;0.5N(0,1)}
-Y
-\xrightarrow{Encoder}
-Z
-\xrightarrow{Decoder}
-\hat X
-$$
+```mermaid
+flowchart LR
+    X["X"] -->|"+ 0.5·N(0,1)"| Y["Y"]
+    Y -->|Encoder| Z["Z"]
+    Z -->|Decoder| Xh["X̂"]
+```
 
 这其实就是一个完整的：
 它非常适合帮助你理解：
