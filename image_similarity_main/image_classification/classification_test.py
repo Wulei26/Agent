@@ -1,7 +1,12 @@
 import torch
+import sys, os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from classification_data import create_dateset # 数据集创建函数
-from classification_config import  TEST_BATCH_SIZE # 配置参数
+from classification_config import  TEST_BATCH_SIZE ,SEED# 配置参数
 from classification_engine import test_step # 测试函数
+from common.utils import seed_everything
+
+seed_everything(SEED)  # 设置随机种子
 _, _, test_dataset = create_dateset()  # 创建训练集、验证集和测试集
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=TEST_BATCH_SIZE, shuffle=False,drop_last=True)  # 创建测试数据加载器
 
