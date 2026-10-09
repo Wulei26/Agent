@@ -13,7 +13,11 @@ collection.add(
         "This is a document about oranges",
     ],
 )
+print(collection.count()) # 统计多少条数据
 
+print(collection.peek())
+
+##按照相似度进行查询
 results = collection.query(
     query_texts=["This is a query document about hawaii"],  # Chroma will embed this for you
     n_results=2,  # how many results to return
