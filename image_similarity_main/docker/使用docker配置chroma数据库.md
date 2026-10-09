@@ -80,7 +80,7 @@ services:
     ports:
       - "8999:8000"
     volumes:
-      - ./chroma_data:/data
+      - /home/terry/code/learning/Agent/image_similarity_main/test/chroma_db/http_db:/data
     environment:
       IS_PERSISTENT: "TRUE"
       PERSIST_DIRECTORY: "/data"
@@ -232,7 +232,7 @@ services:
     ports:
       - "8999:8000"
     volumes:
-      - ./chroma_data:/data
+      - /home/terry/code/learning/Agent/image_similarity_main/test/chroma_db/http_db:/data
     environment:
       IS_PERSISTENT: "TRUE"
       PERSIST_DIRECTORY: "/data"
@@ -407,6 +407,8 @@ Chroma Server (Docker)
 Chroma UI (Vite + Web)
      localhost:8090
 ```
+**web界面**
+![alt text](image.png)
 
 **核心注意事项：**
 
@@ -414,6 +416,7 @@ Chroma UI (Vite + Web)
 2. Python 和 Chroma UI 使用相同的 Tenant、Database，才能访问相同的 Collection。
 3. Docker 部署时需要正确配置持久化目录，避免容器重建后数据丢失。
 4. 推荐开发环境使用 `chromadb.HttpClient()` 连接 Chroma Server，方便 Python 和可视化工具共同管理数据库。
+
 ---
 
 ## 九、目录结构总览
