@@ -69,6 +69,173 @@ Chroma 默认嵌入函数使用 `all-MiniLM-L6-v2`，在本地运行并可能自
 
 单机 Chroma 使用 HNSW：它将向量组织成多层图，上层稀疏，便于快速接近目标区域；下层更密，便于寻找邻近候选。**近似检索不保证每次找到数学上完全精确的最近邻。** 分布式 Chroma 与 Chroma Cloud 的索引实现有所不同，不能把单机 HNSW 描述套用于所有部署。[4]
 
+### 2.5 未指定 Embedding 时，Chroma 如何处理输入
+
+首先区分两个参数：`embedding_function` 是“生成向量的函数”；`embeddings` 是“已经生成好的向量”。[2][3]
+
+| 使用方式 | 发生什么 |
+| --- | --- |
+| 创建新 Collection 时省略 `embedding_function` | 普通完整 Python 客户端使用默认嵌入函数 |
+| 写入 `documents`，省略 `embeddings` | 调用 Collection 的嵌入函数生成向量 |
+| 查询使用 `query_texts` | 调用嵌入函数生成查询向量，再检索 |
+| 提供 `embeddings` 或 `query_embeddings` | 使用提供的向量，不再对这些向量做文本编码 |
+| 创建时明确传 `embedding_function=None` | 关闭自动嵌入，使用者需要自行提供向量 |
+| 获取已有 Collection | 使用其已有嵌入配置，不能理解为必然改用默认模型 |
+
+以下说明针对完整 `chromadb` Python 包的默认文本嵌入路径；精简客户端、其他语言 SDK 或特殊服务配置可能不同。
+
+#### 2.5.1 默认模型：all-MiniLM-L6-v2
+
+默认函数 `DefaultEmbeddingFunction` 调用 `ONNXMiniLM_L6_V2`，使用预训练的 `all-MiniLM-L6-v2` 模型。[8][9]
+
+- 它是基于 Transformer 的句子嵌入模型，包含 6 层 Transformer 编码器。
+- 每段文本最终得到一个 **384 维**向量。
+- Python 默认实现通过 ONNX Runtime 执行模型推理；ONNX 是模型表示格式和运行方式，不是另一种语义算法。
+- 模型权重已经训练好，添加文档时不会重新训练模型，也不会通过调用生成式聊天模型获得向量。
+
+该模型通过句子对上的对比学习调整表示，使相关句子的向量更接近。Chroma 使用的是它训练后的编码能力。[9]
+
+#### 2.5.2 第一步：分词并转换为 Token ID
+
+文本先由模型配套的分词器处理，通常使用 WordPiece 子词分词。例如一个词可能被拆成多个子词，所以 Token 数不等于单词数或字符数。
+
+分词器产生：
+
+| 输入 | 形状 | 用途 |
+| --- | --- | --- |
+| `input_ids` | `(B, L)` | Token 在词表中的编号 |
+| `attention_mask` | `(B, L)` | 标识有效 Token 和补齐位置 |
+| `token_type_ids` | `(B, L)` | 标识句子片段类型，单段文本一般为 0 |
+
+这里 B 是本次编码的文本数量，L 是处理后的 Token 序列长度，包括特殊 Token 和必要的补齐。Token ID 只是词表编号，本身不是语义向量。
+
+默认函数声明的最大输入长度为 256 Token。模型卡描述了默认截断行为，但不同 Chroma 版本或封装可能对超长输入进行校验或报错；不要依赖自动截断保留关键内容，应主动分块。[8][9]
+
+#### 2.5.3 第二步：Transformer 生成上下文向量
+
+Token ID 先转换为可学习的 Token Embedding，并结合位置等信息，再经过多层自注意力和前馈网络。
+
+自注意力使每个 Token 的表示结合上下文，因此同一个词在不同句子中可以得到不同的最终表示。与直接调用 `nn.Embedding` 查表相比，这一步增加了上下文处理。
+
+模型输出可以理解为：
+
+```text
+输入 Token ID：       (B, L)
+Transformer 输出：    (B, L, 384)
+```
+
+此时每个 Token 都有一个 384 维上下文向量，还没有得到整段文本的单个向量。[9]
+
+#### 2.5.4 第三步：带掩码的平均池化
+
+模型的句向量生成流程使用 Mean Pooling：沿 Token 维度求平均，并排除 padding 对结果的影响。
+
+设第 i 个 Token 的向量为 $h_i$，掩码为 $m_i$，则：
+
+$$
+v = \frac{\sum_{i=1}^{L} m_i h_i}{\max(\sum_{i=1}^{L}m_i,\varepsilon)}
+$$
+
+有效位置的掩码为 1，补齐位置为 0，分母中的小量用于防止除零。这里的掩码主要排除 padding，并不等于只对自然语言单词求平均；特殊 Token 的参与取决于掩码。
+
+```text
+池化前：(B, L, 384)
+池化后：(B, 384)
+```
+
+可以类比你学过的池化：CNN 池化聚合空间位置；这里聚合 Token 位置。保留下来的 384 维是表示维度。[9]
+
+#### 2.5.5 第四步：L2 归一化
+
+默认嵌入流程对池化向量做 L2 归一化：
+
+$$
+\hat v = \frac{v}{\max(\lVert v\rVert_2,\varepsilon)}
+$$
+
+归一化后非零向量的长度约为 1，形状仍是 `(B, 384)`。它改变向量长度，不改变方向；**归一化不是把每个分量都变为 0～1，分量仍可以为负数**。[9][10]
+
+这也是默认归一化向量使用平方欧氏距离时，排序能与余弦距离一致的原因。其他自定义嵌入函数不一定执行同样的归一化。
+
+#### 2.5.6 观察默认函数的实际输出
+
+```python
+import numpy as np
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+
+embedding_fn = DefaultEmbeddingFunction()
+texts = [
+    "This is a document about pineapple",
+    "This is a document about oranges",
+]
+
+vectors = np.asarray(embedding_fn(texts), dtype=np.float32)
+print("形状：", vectors.shape)                 # (2, 384)
+print("第一条的前 8 维：", vectors[0, :8])
+print("每条向量的长度：", np.linalg.norm(vectors, axis=1))  # 约为 [1, 1]
+```
+
+这段代码直接调用默认函数，不需要先创建数据库。首次调用可能下载模型；具体浮点数可能受运行环境影响，以实际输出为准。
+
+在 Collection 中显式指定默认函数也可以：
+
+```python
+import chromadb
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+
+client = chromadb.EphemeralClient()
+collection = client.create_collection(
+    name="default_embedding_demo",
+    embedding_function=DefaultEmbeddingFunction(),
+)
+collection.add(ids=["example_001"], documents=["How do I reset my password?"])
+
+stored = collection.get(ids=["example_001"], include=["embeddings"])
+print(len(stored["embeddings"][0]))  # 384
+```
+
+**完整过程：文本 → 分词与 ID → Transformer 上下文编码 → 平均池化 → L2 归一化 → 384 维向量 → 存储和索引。**
+
+### 2.6 嵌入算法与检索算法各自负责什么
+
+| 组件 | 所处阶段 | 解决的问题 |
+| --- | --- | --- |
+| WordPiece 分词 | 编码之前 | 把文本转换为模型可处理的 Token |
+| MiniLM Transformer | 生成嵌入 | 提取文本的上下文语义表示 |
+| Mean Pooling | 生成嵌入 | 将 Token 向量聚合为文本向量 |
+| L2 归一化 | 嵌入后处理 | 将向量缩放到单位长度 |
+| HNSW | 单机向量索引 | 快速搜索近邻向量 |
+| SPANN | 分布式与 Cloud 向量索引 | 通过分区和局部搜索处理大规模向量 |
+| `l2`、`cosine`、`ip` | 距离评估 | 衡量查询与候选向量的接近程度 |
+
+上表中的模型和分词属于嵌入函数的实现，HNSW/SPANN 属于 Chroma 索引实现。修改 HNSW 参数不会让嵌入模型更理解中文；更换嵌入模型也不是调整近邻搜索参数。[4][8][9]
+
+#### 单机 HNSW 的常用参数
+
+| 参数 | 含义 | 增大后的常见影响 |
+| --- | --- | --- |
+| `ef_construction` | 建图时考察的候选规模 | 建图更慢，索引质量通常提高 |
+| `ef_search` | 查询时探索的候选规模 | 召回率通常提高，查询更慢 |
+| `max_neighbors` | 图节点的连接数量参数 | 图更密，内存与建图开销更高 |
+
+当前单机配置示例：
+
+```python
+collection = client.create_collection(
+    name="tuned_hnsw_demo",
+    configuration={
+        "hnsw": {
+            "space": "cosine",
+            "ef_construction": 200,
+            "ef_search": 100,
+            "max_neighbors": 16,
+        }
+    },
+)
+```
+
+这些数值是演示配置，不是所有数据的最优值。`ef_search` 与 `n_results` 不同：前者影响搜索探索量，后者控制返回数量。[4]
+
 ## 3. 安装与客户端
 
 ```bash
@@ -422,7 +589,307 @@ print(prompt)
 - 距离越小表示向量越接近，不代表答案一定正确。
 - 实际知识库应使用一致模型、合理分块、稳定 ID 和可追溯元数据。
 
-## 14. 官方参考资料
+## 14. 常见函数参数解析
+
+本节介绍常用 Python 参数，采用显式关键字写法；不是全部版本的完整函数签名。接口以官方 Client、Collection 文档为准。[1][2]
+
+### 14.1 `query()`：相似度检索
+
+**参数名是 `query_embeddings`，结尾有 s，不是 `query_embedding`。** 推荐写 `query(query_texts=...)`，不要把文本放在未命名的位置参数中；第一个位置参数通常是查询向量。
+
+```python
+results = collection.query(
+    query_texts=["How does convolution work?"],
+    n_results=2,
+    where={"topic": "cnn"},
+    include=["documents", "metadatas", "distances"],
+)
+```
+
+| 参数 | 常用输入与形状 | 用途与注意事项 |
+| --- | --- | --- |
+| `query_embeddings` | 浮点数二维列表，`(Q, d)` | 已生成的查询向量；不再调用文本嵌入模型，维度与 Collection 一致 |
+| `query_texts` | 字符串列表，长度 Q | 待查询文本；使用 Collection 的嵌入函数生成向量 |
+| `query_images` | 图像数组列表 | 使用兼容图像的嵌入函数编码；默认文本模型不能直接处理图片 |
+| `query_uris` | URI 字符串列表 | 通过配置的数据加载器加载内容后编码；不是任意网页链接的自动抓取功能 |
+| `n_results` | 正整数，如 `2` | 每条查询请求返回的近邻数量；常见默认值为 10，可显式设置 |
+| `where` | 条件字典 | 按记录的 `metadatas` 过滤 |
+| `where_document` | 文本条件字典 | 按保存的文档内容过滤，例如 `$contains` |
+| `include` | 字段名列表 | 指定返回字段；默认一般含文档、元数据和距离，ID 始终返回 |
+| `ids` | 字符串列表 | 较新版本支持限定检索的候选记录 ID，旧版本可能没有此参数 |
+
+Q 是查询数量，d 是向量维度。`n_results` 不是查询数量，也不是相似度阈值。候选不足时可能返回更少记录；不要假设每次都能得到恰好 K 条。
+
+#### A. `query_texts`：让 Chroma 帮你生成查询向量
+
+以下例子独立使用默认模型，避免与前文中文模型配置混淆：
+
+```python
+import chromadb
+
+client = chromadb.EphemeralClient()
+collection = client.create_collection(name="query_parameters_demo")
+collection.add(
+    ids=["d1", "d2", "d3"],
+    documents=[
+        "Convolution extracts local image features.",
+        "Pooling reduces the spatial size of feature maps.",
+        "A vector database stores and retrieves embeddings.",
+    ],
+    metadatas=[
+        {"topic": "cnn", "chapter": 1},
+        {"topic": "cnn", "chapter": 2},
+        {"topic": "database", "chapter": 3},
+    ],
+)
+
+results = collection.query(
+    query_texts=["How are image features extracted?"],
+    n_results=2,
+)
+print(results["documents"][0])
+```
+
+处理逻辑：`query_texts` → Collection 嵌入函数 → 查询向量 → 向量检索。不会把查询文本写入 Collection。
+
+#### B. `query_embeddings`：你已经生成了查询向量
+
+下面接着上面的默认模型 Collection 执行：
+
+```python
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+
+embedding_fn = DefaultEmbeddingFunction()
+query_vectors = embedding_fn(["How are image features extracted?"])
+
+results = collection.query(
+    query_embeddings=query_vectors,  # 形状为 (1, 384)
+    n_results=2,
+)
+```
+
+处理逻辑：直接使用 `query_vectors` 检索。这里只能使用与文档编码一致的模型；如果 Collection 使用自定义中文模型，就应使用那个模型生成查询向量。
+
+一个三维查询向量的推荐写法为 `[[0.1, 0.2, 0.3]]`，两个查询为 `[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]`。三维示意向量不能直接查询默认模型建立的 384 维 Collection。
+
+#### C. 两种查询输入不能同时传入
+
+```python
+# 错误示例：不要执行
+# collection.query(
+#     query_texts=["How does pooling work?"],
+#     query_embeddings=query_vectors,
+# )
+```
+
+一次调用需要在 `query_embeddings`、`query_texts`、`query_images`、`query_uris` 中选择一种查询输入。过滤条件与 `include` 可以同时传入；它们不是另一种查询输入。
+
+#### D. 批量查询与返回维度
+
+```python
+results = collection.query(
+    query_texts=[
+        "How are image features extracted?",
+        "What reduces feature map size?",
+    ],
+    n_results=2,
+    include=["documents", "distances"],
+)
+
+for query_index, (docs, distances) in enumerate(
+    zip(results["documents"], results["distances"])
+):
+    print("查询编号：", query_index)
+    for doc, distance in zip(docs, distances):
+        print(distance, doc)
+```
+
+假设每条查询都有 K 个命中：
+
+| 字段 | 结构 |
+| --- | --- |
+| `ids` | `(Q, K)` |
+| `documents` | `(Q, K)` |
+| `distances` | `(Q, K)` |
+| 请求返回的 `embeddings` | `(Q, K, d)`，是命中文档向量 |
+
+最后一项返回的是**命中记录的向量**，不是查询向量。过滤条件应用于本次批量调用的所有查询，不能在一个 `where` 列表中分别给每个问题传不同条件。[2]
+
+#### E. `where`、`where_document` 与 `include` 的组合
+
+```python
+results = collection.query(
+    query_texts=["How are image features extracted?"],
+    n_results=1,
+    where={"topic": "cnn"},
+    where_document={"$contains": "Convolution"},
+    include=["documents", "metadatas", "distances", "embeddings"],
+)
+```
+
+这里候选记录需要同时满足元数据与文本条件，再参与近邻检索。`include` 只控制返回内容，不改变编码模型或相似度排序。无需在 `include` 中写 `"ids"`，ID 会自动返回。
+
+### 14.2 `add()`：新增记录
+
+```python
+collection.add(
+    ids=["d4"],
+    documents=["A decoder reconstructs an image from features."],
+    metadatas=[{"topic": "cnn", "chapter": 4}],
+)
+```
+
+| 参数 | 用途 | 关键约束 |
+| --- | --- | --- |
+| `ids` | 每条记录的唯一标识 | 必填，推荐使用字符串列表；同一批内不重复 |
+| `documents` | 保存原文，未提供向量时用于自动嵌入 | 一条记录对应一段文本 |
+| `embeddings` | 提供预计算向量 | 形状 `(N, d)`，维度一致 |
+| `metadatas` | 保存来源、分类等属性 | N 个属性字典，与 ID 按位置对应 |
+| `images` | 图像编码输入 | 需要图像嵌入函数；图像数组不等于文档文本 |
+| `uris` | 记录或加载的资源位置 | 自动编码通常还需要兼容的数据加载器 |
+
+N 为本批记录数。只传 `ids` 无法生成向量；通常至少提供文档或预计算向量。预计算向量路径中，原文是否同时作为附带字段接受，请以安装版本的契约为准；官方参考页与部分版本实现存在差异，本文示例分别演示文本路径与向量路径。
+
+`metadatas` 默认不会拼接进 `documents` 自动参与语义编码。例如 `{"topic": "cnn"}` 主要是过滤属性；若需要模型理解分类，应主动把相关语义写入编码文本。
+
+### 14.3 `get()`：按 ID 或条件读取
+
+```python
+records = collection.get(
+    where={"topic": "cnn"},
+    limit=2,
+    offset=0,
+    include=["documents", "metadatas"],
+)
+```
+
+| 参数 | 含义 |
+| --- | --- |
+| `ids` | 指定读取的记录 ID，可省略 |
+| `where` | 元数据条件 |
+| `where_document` | 文档内容条件 |
+| `limit` | 最多读取多少条记录 |
+| `offset` | 跳过多少条，用于分页 |
+| `include` | 返回字段，默认一般为文档和元数据 |
+
+`get()` 不接收 `query_texts` 或 `query_embeddings`，不计算与问题的距离，因此不要在其 `include` 中请求 `"distances"`。
+
+```python
+records = collection.get(ids=["d1"], include=["documents", "embeddings"])
+print(records["documents"][0])   # 平坦列表，第 1 条记录的文本
+print(records["embeddings"][0])  # 第 1 条记录的向量
+```
+
+对比 `query()` 的文本取值 `results["documents"][0][0]`：前一个 0 对应查询，后一个 0 对应命中。`get()` 没有查询这一层。
+
+### 14.4 `update()` 与 `upsert()`：修改或写入
+
+两者常用参数都包括 `ids`、`documents`、`embeddings`、`metadatas`，以及特定场景下的 `images`、`uris`。
+
+| 函数 | ID 已存在 | ID 不存在 |
+| --- | --- | --- |
+| `update()` | 更新指定记录 | 不应依赖其创建新记录，具体提示行为以版本为准 |
+| `upsert()` | 更新记录 | 新增记录，因此新 ID 必须提供可建立向量的数据 |
+
+```python
+# 修改文本：省略 embeddings 时，用该 Collection 的嵌入函数重算向量
+collection.update(
+    ids=["d1"],
+    documents=["Convolution kernels learn local image patterns."],
+)
+
+# 只修改元数据，不需要重新提供文本或向量
+collection.update(
+    ids=["d2"],
+    metadatas=[{"reviewed": True}],
+)
+
+# 已有则更新，不存在则创建
+collection.upsert(
+    ids=["d5"],
+    documents=["An encoder compresses an image into a feature representation."],
+    metadatas=[{"topic": "cnn", "chapter": 5}],
+)
+```
+
+如果采用手动向量管理，新文本对应的新向量也应同步更新，避免“保存的原文已变，索引仍表示旧内容”。记录元数据的更新细节与 Collection 元数据的修改行为不同，不能混为一谈。
+
+### 14.5 `delete()`：删除记录
+
+| 参数 | 用途 |
+| --- | --- |
+| `ids` | 指定删除的记录 ID |
+| `where` | 按元数据筛选删除目标 |
+| `where_document` | 按文本内容筛选删除目标 |
+
+```python
+# 参数示例；执行后对应记录会被删除
+# collection.delete(ids=["d5"])
+# collection.delete(where={"topic": "database"})
+```
+
+按过滤条件删除会影响所有匹配记录。可先使用相同条件的 `get()` 检查目标范围。删除记录使用 `collection.delete()`；删除整个 Collection 使用 `client.delete_collection(name=...)`，两者粒度不同。
+
+### 14.6 Collection 的创建、获取与修改
+
+| 函数 | 常用参数 | 用途 |
+| --- | --- | --- |
+| `client.create_collection()` | `name`、`embedding_function`、`metadata`、`configuration` | 创建新集合 |
+| `client.get_collection()` | `name`，需要时指定兼容的 `embedding_function` | 获取已有集合 |
+| `client.get_or_create_collection()` | 与创建方法相近 | 获取或创建，不能当作已有配置的更新接口 |
+| `collection.modify()` | `name`、`metadata`、`configuration` | 修改集合属性或允许调整的索引参数 |
+| `client.delete_collection()` | `name` | 删除整个集合及其记录 |
+
+较新版本能持久化并恢复内置嵌入函数配置；旧版本或自定义函数可能仍需要在获取集合时显式提供同一个函数。[1][4]
+
+```python
+import chromadb
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+
+client = chromadb.EphemeralClient()
+collection = client.create_collection(
+    name="collection_parameters_demo",
+    embedding_function=DefaultEmbeddingFunction(),
+    metadata={"description": "Learning examples"},
+    configuration={"hnsw": {"space": "cosine", "ef_search": 100}},
+)
+
+collection.modify(name="renamed_parameters_demo")
+```
+
+三个容易混淆的参数：
+
+- `metadata`：Collection 本身的属性，单个字典。
+- `metadatas`：每条记录的属性，字典列表，用于 `where` 过滤。
+- `configuration`：索引与嵌入配置，不能用普通业务元数据替代。
+
+修改 Collection 的 `metadata` 通常是覆盖整个字典，而不是自动追加。`modify()` 也不能任意改变所有建图参数，例如距离指标通常需要新建集合迁移。
+
+### 14.7 其他常用函数
+
+| 函数 | 常用参数 | 用途 |
+| --- | --- | --- |
+| `collection.count()` | 无 | 返回记录总数，不是查询结果数量 |
+| `collection.peek(limit=5)` | `limit` | 查看少量记录，不执行相似度排序 |
+| `client.list_collections()` | 可用的 `limit`、`offset` 依版本而定 | 列出集合，返回名称还是对象也需按版本确认 |
+| `client.heartbeat()` | 无 | 检查客户端与数据库是否可通信 |
+| `client.get_version()` | 无 | 查看数据库版本 |
+
+### 14.8 参数速记
+
+| 你的目的 | 选什么参数或函数 |
+| --- | --- |
+| 用一句话查相似内容 | `query(query_texts=[...])` |
+| 用已有向量查相似内容 | `query(query_embeddings=[[...]])` |
+| 限定分类 | `where={"topic": ...}` |
+| 必须包含某段文字 | `where_document={"$contains": ...}` |
+| 控制每个问题返回数量 | `n_results=K` |
+| 控制返回哪些字段 | `include=[...]` |
+| 查某条已知 ID 的记录 | `get(ids=[...])` |
+| 新增或更新同一 ID | `upsert(ids=[...], ...)` |
+| 修改已有记录 | `update(ids=[...], ...)` |
+
+## 15. 官方参考资料
 
 1. [Python Client API](https://docs.trychroma.com/reference/python)
 2. [Python Collection API](https://docs.trychroma.com/reference/python/collection)
@@ -431,3 +898,7 @@ print(prompt)
 5. [Chroma Clients](https://docs.trychroma.com/docs/run-chroma/cloud-client)
 6. [Query and Get](https://docs.trychroma.com/docs/querying-collections/query-and-get)
 7. [Single-Node Performance](https://docs.trychroma.com/guides/deploy/performance)
+
+8. [DefaultEmbeddingFunction 源码](https://github.com/chroma-core/chroma/blob/main/chromadb/api/types.py)
+9. [all-MiniLM-L6-v2 模型卡](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
+10. [Chroma ONNX 嵌入实现](https://github.com/chroma-core/chroma/blob/main/chromadb/utils/embedding_functions/onnx_mini_lm_l6_v2.py)
