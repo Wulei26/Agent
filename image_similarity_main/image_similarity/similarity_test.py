@@ -1,6 +1,5 @@
 import torch
-import sys, os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import os
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
@@ -8,9 +7,9 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from torchvision import transforms as T
 from common.utils import seed_everything
-from similarity_config import SEED,IMG_PATH,IMG_HEIGHT,IMG_WIDTH
-from similarity_data import create_dateset
-from similarity_embeddings import _load_encoder,search_similarity_image_ids,get_collection
+from image_similarity.similarity_config import SEED,IMG_PATH,IMG_HEIGHT,IMG_WIDTH
+from image_similarity.similarity_data import create_dateset
+from image_similarity.similarity_embeddings import _load_encoder,search_similarity_image_ids,get_collection
 
 # seed_everything(SEED)  # 设置随机种子
 
@@ -55,7 +54,7 @@ if __name__ == "__main__":
 
     # 显示相似图片
     for i, img_id in enumerate(similar_image_ids):
-        img_path = os.path.join("../common/dataset/", f"{img_id}.jpg")
+        img_path = os.path.join(IMG_PATH, f"{img_id}.jpg")
 
         similar_image = Image.open(img_path).convert("RGB")
 

@@ -1,0 +1,15 @@
+# Python 编译文件
+*.py[cod]
+*$py.class
+__pycache__/
+*.pyo
+*.pyd
+
+**/common/dataset/
+**/common/dataset.zip
+**/common/fashion-labels.csv
+**/image_similarity_main/image_similarity/chroma_backend/
+**/image_similarity_main/test/chroma_db
+
+# 模型权重文件（不纳入版本控制）
+*.pt

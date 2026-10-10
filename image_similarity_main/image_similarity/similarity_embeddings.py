@@ -5,14 +5,15 @@ import numpy as np
 import chromadb
 import pandas as pd
 from math import ceil
+from pathlib import Path
 from tqdm import tqdm
 from chromadb import EmbeddingFunction, Embeddings
 from chromadb.api.types import Image
 from PIL import Image as PILImage
 import torchvision.transforms.transforms as T
-from similarity_data import sorted_alphanumeric
-from similarity_model import ConvEncoder
-from similarity_config import (
+from .similarity_data import sorted_alphanumeric
+from .similarity_model import ConvEncoder
+from .similarity_config import (
     ENCODER_MODEL_NAME,
     CHROMA_BACKEND_PATH,
     CHROMA_INSERT_BATCH,
@@ -31,11 +32,14 @@ from similarity_config import (
 """
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # 检查是否有可用的GPU，否则使用CPU
 
+# 当前文件所在目录（image_similarity/）
+BASE_DIR = Path(__file__).resolve().parent
+
 
 # 1.加载模型
 def _load_encoder() -> ConvEncoder:
     model = ConvEncoder().to(device)
-    model.load_state_dict(torch.load(ENCODER_MODEL_NAME, map_location=device))  # 加载模型参数
+    model.load_state_dict(torch.load(str(BASE_DIR / ENCODER_MODEL_NAME), map_location=device))  # 加载模型参数
     return model
 
 
@@ -82,11 +86,7 @@ class ImageEmbeddingFunction(EmbeddingFunction[Image]):
 def get_collection(encoder: ConvEncoder):
     # 1.创建客户端
     client = chromadb.PersistentClient(
-        path=os.path.join(
-            "..",
-            PACKAGE_NAME,
-            CHROMA_BACKEND_PATH,
-        )
+        path=str(BASE_DIR / CHROMA_BACKEND_PATH)
     )
     if USE_HTTP_SERVICE:
         client = chromadb.HttpClient(host="localhost", port=8999)

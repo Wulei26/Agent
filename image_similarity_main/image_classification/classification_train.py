@@ -1,11 +1,9 @@
 
 import torch
-import sys, os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from classification_model import ImageClassification # 模型
-from classification_engine import train_step, val_step, test_step # 训练、验证和测试函数
-from classification_data import create_dateset # 数据集创建函数
-from classification_config import (IMG_HEIGHT, IMG_WIDTH, LEARNING_RATE, EPOCHS,
+from image_classification.classification_model import ImageClassification # 模型
+from image_classification.classification_engine import train_step, val_step, test_step # 训练、验证和测试函数
+from image_classification.classification_data import create_dateset # 数据集创建函数
+from image_classification.classification_config import (IMG_HEIGHT, IMG_WIDTH, LEARNING_RATE, EPOCHS,
                                     TRAIN_BATCH_SIZE, TEST_BATCH_SIZE, FULL_BATCH_SIZE,
                                     PACKAGE_NAME, CLASSIFIER_MODEL_NAME,SEED) # 配置参数
 from common.utils import seed_everything

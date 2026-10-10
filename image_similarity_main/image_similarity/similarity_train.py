@@ -1,10 +1,7 @@
-import sys, os
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import torch
 import numpy as np
 import torch.nn as nn
-from similarity_config import (
+from image_similarity.similarity_config import (
     IMG_HEIGHT,
     IMG_WIDTH,
     TRAIN_BATCH_SIZE,
@@ -18,11 +15,11 @@ from similarity_config import (
 # 导入优化器模块
 import torch.optim as optim
 from tqdm import tqdm
-from similarity_model import ConvDecoder, ConvEncoder
-from similarity_engine import train_step, val_step
+from image_similarity.similarity_model import ConvDecoder, ConvEncoder
+from image_similarity.similarity_engine import train_step, val_step
 
 import torchvision.transforms as T
-from similarity_data import create_dateset
+from image_similarity.similarity_data import create_dateset
 from common.utils import seed_everything
 
 transform = T.Compose(

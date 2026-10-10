@@ -1,16 +1,15 @@
-import sys, os
+import os
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import torch
 import matplotlib.pyplot as plt
 
 from torch.utils.data import DataLoader
 from common.utils import seed_everything
-from denoising_config import *
-from denoising_data import create_dataloader
-from denoising_engine import val_step
-from denoising_model import ConvDenoiser
+from image_denoising.denoising_config import *
+from image_denoising.denoising_data import create_dataloader
+from image_denoising.denoising_engine import val_step
+from image_denoising.denoising_model import ConvDenoiser
 
 
 def test_batch(model, test_loader, device, save_path="denoising_result.png"):

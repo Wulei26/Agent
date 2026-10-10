@@ -5,7 +5,7 @@ from PIL import Image  # 图像处理库
 import os  # 操作系统接口库
 from torch.utils.data import Dataset  # PyTorch数据集基类
 import pandas as pd
-from classification_config import *  # 导入分类配置和图像尺寸
+from image_classification.classification_config import *  # 导入分类配置和图像尺寸
 import re
 import torchvision.transforms as T  # 图像预处理变换库
 from torch.utils.data import random_split  # 数据集随机划分函数

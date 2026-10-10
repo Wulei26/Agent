@@ -1,5 +1,10 @@
+from pathlib import Path
+
+# 当前文件所在目录（image_similarity/）
+BASE_DIR = Path(__file__).resolve().parent
+
 # ------------ 数据路径与预处理配置 ------------
-IMG_PATH = "../common/dataset/"  # 原始图像存储根目录（需确保存在子目录）
+IMG_PATH = str(BASE_DIR.parent / "common" / "dataset")  # 原始图像存储根目录（需确保存在子目录）
 IMG_HEIGHT = 64
 IMG_WIDTH = 64
 

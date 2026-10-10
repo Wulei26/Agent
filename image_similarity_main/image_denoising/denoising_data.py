@@ -6,10 +6,10 @@ import re
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
-from denoising_config import NOISE_FACTOR, IMG_PATH
+from image_denoising.denoising_config import NOISE_FACTOR, IMG_PATH
 import torchvision.transforms as T
 from torch.utils.data import random_split, DataLoader
-from denoising_config import TRAIN_RATIO, VAL_RATIO, TRAIN_BATCH_SIZE, TEST_BATCH_SIZE
+from image_denoising.denoising_config import TRAIN_RATIO, VAL_RATIO, TRAIN_BATCH_SIZE, TEST_BATCH_SIZE
 
 
 def sorted_alphanumeric(data):

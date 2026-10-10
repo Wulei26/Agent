@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
 from tqdm import tqdm
-from denoising_data import create_dataloader
-from denoising_model import ConvDenoiser
-from denoising_engine import train_step, val_step
-from denoising_config import LEARNING_RATE, EPOCHS, DENOISER_MODEL_NAME
+from image_denoising.denoising_data import create_dataloader
+from image_denoising.denoising_model import ConvDenoiser
+from image_denoising.denoising_engine import train_step, val_step
+from image_denoising.denoising_config import LEARNING_RATE, EPOCHS, DENOISER_MODEL_NAME
 
 # 1.定义设备
 # 检查是否有可用的 GPU，如果有则使用 GPU，否则使用 CPU
