@@ -6,7 +6,7 @@ import chromadb
 import pandas as pd
 from math import ceil
 from tqdm import tqdm
-from chromadb import Documents, EmbeddingFunction, Embeddings
+from chromadb import EmbeddingFunction, Embeddings
 from chromadb.api.types import Image
 from PIL import Image as PILImage
 import torchvision.transforms.transforms as T
@@ -67,7 +67,7 @@ def _load_id_to_image(main_dir: str, transform):
 class ImageEmbeddingFunction(EmbeddingFunction[Image]):
 
     def __init__(self, model):
-        self.model = model
+        self.model = model.to('cpu')  # 将模型移动到CPU上进行推理，避免GPU内存占用过高
 
     def __call__(self, input: Image) -> Embeddings:
         # 将输入image转化为Tensor
