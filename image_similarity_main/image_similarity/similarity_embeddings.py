@@ -21,6 +21,7 @@ from similarity_config import (
     IMG_HEIGHT,
     IMG_WIDTH,
     IMG_PATH,
+    USE_HTTP_SERVICE,
 )
 
 # 训练好的Encoder模型，可以直接将图片通过encoder进行编码，然后存放进入向量数据库
@@ -87,6 +88,9 @@ def get_collection(encoder: ConvEncoder):
             CHROMA_BACKEND_PATH,
         )
     )
+    if USE_HTTP_SERVICE:
+        client = chromadb.HttpClient(host="localhost", port=8999)
+
     # 2.创建集合
     collection = client.get_or_create_collection(
         name=CHROMA_COLLECTION_NAME, embedding_function=ImageEmbeddingFunction(model=encoder)
@@ -132,13 +136,14 @@ def search_similarity_image_ids(collection, image_tensor, cnt):
 
 
 if __name__ == "__main__":
-    model = _load_encoder()
-    print(model)
-    transform = T.Compose(
-        [
-            T.Resize((IMG_HEIGHT, IMG_WIDTH)),  # 调整图像大小为指定高度和宽度
-            T.ToTensor(),  # 将图像转换为张量
-        ]
-    )
-    id_dict = _load_id_to_image(main_dir=IMG_PATH, transform=transform)
-    print(id_dict)
+    # model = _load_encoder()
+    # print(model)
+    # transform = T.Compose(
+    #     [
+    #         T.Resize((IMG_HEIGHT, IMG_WIDTH)),  # 调整图像大小为指定高度和宽度
+    #         T.ToTensor(),  # 将图像转换为张量
+    #     ]
+    # )
+    # id_dict = _load_id_to_image(main_dir=IMG_PATH, transform=transform)
+    # print(id_dict)
+    create_embeddings()

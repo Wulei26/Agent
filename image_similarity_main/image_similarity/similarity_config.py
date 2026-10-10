@@ -23,3 +23,5 @@ ENCODER_MODEL_NAME = "deep_encoder.pt"  # 编码器权重保存路径（需写�
 DECODER_MODEL_NAME = "deep_decoder.pt"  # 解码器权重保存路径（需写权限）
 CHROMA_COLLECTION_NAME = "image_similarity"
 CHROMA_BACKEND_PATH = "chroma_backend"  # 特征嵌入存储路径
+
+USE_HTTP_SERVICE = True  # 是否使用 HTTP 服务（True: 使用 HTTP 服务，False: 使用本地服务）
