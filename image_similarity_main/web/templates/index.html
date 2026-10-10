@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智图寻宝 · 智能商品识别系统</title>
+    <style>
+        :root {
+            --bg: #f4f6fc;
+            --surface: rgba(255, 255, 255, 0.72);
+            --surface-solid: #ffffff;
+            --border: rgba(99, 102, 241, 0.14);
+            --text: #0f172a;
+            --muted: #64748b;
+            --accent-1: #6366f1;
+            --accent-2: #8b5cf6;
+            --accent-3: #06b6d4;
+            --grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 48%, #06b6d4 100%);
+            --shadow-sm: 0 2px 10px rgba(30, 41, 59, 0.06);
+            --shadow-md: 0 12px 32px rgba(99, 102, 241, 0.14);
+            --shadow-lg: 0 24px 60px rgba(99, 102, 241, 0.22);
+            --radius: 20px;
+            --radius-sm: 12px;
+            --ease: cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body { height: 100%; }
+
+        body {
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text);
+            background: var(--bg);
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        /* ---------- 动态渐变背景 ---------- */
+        .bg {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background: radial-gradient(1200px 800px at 15% -10%, #eef0ff 0%, transparent 60%),
+                        radial-gradient(1000px 700px at 110% 15%, #e6fbff 0%, transparent 55%),
+                        linear-gradient(180deg, #f7f9ff 0%, #f0f3fb 100%);
+        }
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(70px);
+            opacity: 0.5;
+            animation: drift 18s var(--ease) infinite alternate;
+            will-change: transform;
+        }
+        .blob.b1 { width: 420px; height: 420px; background: #c7d2fe; top: -120px; left: -80px; }
+        .blob.b2 { width: 380px; height: 380px; background: #a5f3fc; bottom: -140px; right: -60px; animation-delay: -6s; }
+        .blob.b3 { width: 300px; height: 300px; background: #ddd6fe; top: 40%; left: 60%; animation-delay: -12s; }
+
+        @keyframes drift {
+            from { transform: translate(0, 0) scale(1); }
+            to   { transform: translate(40px, 30px) scale(1.12); }
+        }
+
+        /* ---------- 顶部品牌 ---------- */
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            padding: 14px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.55);
+            backdrop-filter: saturate(180%) blur(16px);
+            -webkit-backdrop-filter: saturate(180%) blur(16px);
+            border-bottom: 1px solid var(--border);
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            animation: fadeUp 0.6s var(--ease) both;
+        }
+        .brand .logo {
+            width: 46px;
+            height: 46px;
+            border-radius: 13px;
+            box-shadow: 0 6px 18px rgba(99, 102, 241, 0.35);
+            transition: transform 0.4s var(--ease);
+        }
+        .brand:hover .logo { transform: rotate(-8deg) scale(1.06); }
+        .brand-text h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+        .brand-text p { font-size: 12px; color: var(--muted); margin-top: 1px; }
+        .topbar .badge {
+            font-size: 12px;
+            color: var(--accent-1);
+            background: rgba(99, 102, 241, 0.1);
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-weight: 600;
+            animation: fadeUp 0.6s var(--ease) 0.08s both;
+        }
+
+        /* ---------- 主容器 ---------- */
+        .container {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 32px 24px 80px;
+            display: flex;
+            flex-direction: column;
+            gap: 26px;
+        }
+
+        .card {
+            background: var(--surface);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            padding: 26px;
+            transition: box-shadow 0.35s var(--ease), transform 0.35s var(--ease);
+        }
+        .card:hover { box-shadow: var(--shadow-md); }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--text);
+        }
+        .section-title .dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--grad);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
+        }
+
+        /* ---------- 上传区 ---------- */
+        .dropzone {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            min-height: 200px;
+            border: 2px dashed rgba(99, 102, 241, 0.35);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            text-align: center;
+            transition: border-color 0.3s var(--ease), background 0.3s var(--ease), transform 0.3s var(--ease);
+            padding: 28px;
+        }
+        .dropzone:hover, .dropzone.drag {
+            border-color: var(--accent-1);
+            background: rgba(99, 102, 241, 0.05);
+            transform: translateY(-2px);
+        }
+        .dropzone .dz-icon {
+            width: 58px; height: 58px;
+            border-radius: 18px;
+            display: grid; place-items: center;
+            background: var(--grad);
+            color: #fff;
+            box-shadow: 0 10px 24px rgba(99, 102, 241, 0.35);
+            transition: transform 0.35s var(--ease);
+        }
+        .dropzone:hover .dz-icon { transform: translateY(-4px) rotate(-4deg); }
+        .dropzone .dz-icon svg { width: 28px; height: 28px; }
+        .dropzone h3 { font-size: 16px; font-weight: 700; }
+        .dropzone p { font-size: 13px; color: var(--muted); }
+
+        .preview-wrap {
+            display: none;
+            align-items: center;
+            gap: 18px;
+            margin-top: 18px;
+            animation: fadeUp 0.5s var(--ease) both;
+        }
+        .preview-wrap.show { display: flex; }
+        .preview-wrap img {
+            width: 88px; height: 88px;
+            object-fit: cover;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+        }
+        .preview-wrap .meta { flex: 1; }
+        .preview-wrap .meta .name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+        .preview-wrap .meta .hint { font-size: 12px; color: var(--muted); }
+
+        .btn-ghost {
+            border: 1px solid var(--border);
+            background: var(--surface-solid);
+            color: var(--muted);
+            padding: 9px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.25s var(--ease);
+        }
+        .btn-ghost:hover { color: var(--accent-1); border-color: var(--accent-1); }
+
+        /* ---------- 操作按钮 ---------- */
+        .actions {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+        .btn {
+            position: relative;
+            border: none;
+            cursor: pointer;
+            padding: 18px 20px;
+            border-radius: var(--radius-sm);
+            font-size: 15px;
+            font-weight: 700;
+            color: #fff;
+            background: var(--grad);
+            background-size: 160% 160%;
+            box-shadow: var(--shadow-md);
+            transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease), background-position 0.5s var(--ease), opacity 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-lg);
+            background-position: 100% 50%;
+        }
+        .btn:active:not(:disabled) { transform: translateY(-1px) scale(0.99); }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+        .btn svg { width: 20px; height: 20px; }
+        .btn .spinner {
+            width: 18px; height: 18px;
+            border: 2.5px solid rgba(255, 255, 255, 0.4);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: none;
+        }
+        .btn.loading .spinner { display: inline-block; }
+        .btn.loading svg { display: none; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ---------- 去噪结果对比 ---------- */
+        .compare {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+        .frame {
+            background: var(--surface-solid);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+        .frame .label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--muted);
+            padding: 12px 14px 8px;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .frame .img-holder {
+            position: relative;
+            aspect-ratio: 1 / 1;
+            background:
+                linear-gradient(45deg, #f1f5f9 25%, transparent 25%, transparent 75%, #f1f5f9 75%),
+                linear-gradient(45deg, #f1f5f9 25%, transparent 25%, transparent 75%, #f1f5f9 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+        }
+        .frame img {
+            width: 100%; height: 100%;
+            object-fit: contain;
+            opacity: 0;
+            transform: scale(0.96);
+            transition: opacity 0.5s var(--ease), transform 0.5s var(--ease);
+        }
+        .frame img.loaded { opacity: 1; transform: scale(1); }
+
+        /* ---------- 分类结果 ---------- */
+        .result-box {
+            min-height: 56px;
+            border-radius: var(--radius-sm);
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(6, 182, 212, 0.08));
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 16px 20px;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--accent-1);
+        }
+        .result-box.placeholder { color: var(--muted); font-weight: 500; font-size: 14px; }
+
+        /* ---------- 相似商品 ---------- */
+        .similar-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 14px;
+        }
+        .similar-grid .item {
+            position: relative;
+            aspect-ratio: 3 / 4;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            background: var(--surface-solid);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+            opacity: 0;
+            transform: translateY(18px);
+            transition: transform 0.35s var(--ease), box-shadow 0.35s var(--ease);
+        }
+        .similar-grid .item.reveal { opacity: 1; transform: translateY(0); }
+        .similar-grid .item:hover { transform: translateY(-5px); box-shadow: var(--shadow-md); }
+        .similar-grid img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .similar-grid .tag {
+            position: absolute;
+            left: 8px; bottom: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #fff;
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(4px);
+            padding: 3px 9px;
+            border-radius: 999px;
+        }
+
+        /* ---------- Toast ---------- */
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%) translateY(120%);
+            background: #0f172a;
+            color: #fff;
+            padding: 12px 22px;
+            border-radius: 12px;
+            font-size: 14px;
+            box-shadow: var(--shadow-lg);
+            opacity: 0;
+            transition: transform 0.4s var(--ease), opacity 0.4s var(--ease);
+            z-index: 100;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        /* ---------- 入场动画 ---------- */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .reveal { animation: fadeUp 0.6s var(--ease) both; }
+        .reveal.d1 { animation-delay: 0.05s; }
+        .reveal.d2 { animation-delay: 0.12s; }
+        .reveal.d3 { animation-delay: 0.19s; }
+        .reveal.d4 { animation-delay: 0.26s; }
+        .reveal.d5 { animation-delay: 0.33s; }
+
+        /* ---------- 响应式 ---------- */
+        @media (max-width: 760px) {
+            .actions { grid-template-columns: 1fr; }
+            .compare { grid-template-columns: 1fr; }
+            .similar-grid { grid-template-columns: repeat(3, 1fr); }
+            .preview-wrap { flex-direction: column; align-items: flex-start; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            * { animation-duration: 0.001s !important; transition-duration: 0.001s !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg">
+        <div class="blob b1"></div>
+        <div class="blob b2"></div>
+        <div class="blob b3"></div>
+    </div>
+
+    <header class="topbar">
+        <div class="brand">
+            <img class="logo" src="/logo/logo.svg" alt="智图寻宝">
+            <div class="brand-text">
+                <h1>智图寻宝</h1>
+                <p>智能商品识别系统</p>
+            </div>
+        </div>
+        <span class="badge">AI · 图像检索</span>
+    </header>
+
+    <main class="container">
+        <!-- 上传 -->
+        <section class="card reveal">
+            <div class="section-title"><span class="dot"></span>上传图片</div>
+            <label class="dropzone" id="dropzone">
+                <input type="file" id="image-upload" accept="image/*" hidden>
+                <div class="dz-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>
+                    </svg>
+                </div>
+                <h3>拖拽图片到这里，或点击上传</h3>
+                <p>支持 JPG / PNG，上传后可进行去噪、分类与相似检索</p>
+            </label>
+            <div class="preview-wrap" id="preview-wrap">
+                <img id="image-preview" alt="预览图">
+                <div class="meta">
+                    <div class="name" id="file-name">已选择图片</div>
+                    <div class="hint">点击「图像去噪」后，再使用分类与相似检索</div>
+                </div>
+                <button class="btn-ghost" id="reset-btn">重新上传</button>
+            </div>
+        </section>
+
+        <!-- 操作 -->
+        <section class="actions reveal d1">
+            <button class="btn" id="denoising_button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg>
+                <span class="spinner"></span>图像去噪
+            </button>
+            <button class="btn" id="classification_button" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v4H4zM4 12h16v4H4zM4 20h16v4H4z"/></svg>
+                <span class="spinner"></span>商品分类
+            </button>
+            <button class="btn" id="similarity_button" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                <span class="spinner"></span>相似商品
+            </button>
+        </section>
+
+        <!-- 去噪结果 -->
+        <section class="card reveal d2" id="denoise-card" style="display:none">
+            <div class="section-title"><span class="dot"></span>去噪结果</div>
+            <div class="compare">
+                <div class="frame">
+                    <div class="label">原始图片</div>
+                    <div class="img-holder"><img id="img-original" alt="原始图片"></div>
+                </div>
+                <div class="frame">
+                    <div class="label">噪声图片</div>
+                    <div class="img-holder"><img id="img-noised" alt="噪声图片"></div>
+                </div>
+                <div class="frame">
+                    <div class="label">去噪结果</div>
+                    <div class="img-holder"><img id="img-denoised" alt="去噪结果"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 分类结果 -->
+        <section class="card reveal d3" id="classify-card">
+            <div class="section-title"><span class="dot"></span>分类结果</div>
+            <div class="result-box placeholder" id="result-text">完成图像去噪后，点击「商品分类」查看识别结果</div>
+        </section>
+
+        <!-- 相似商品 -->
+        <section class="card reveal d4" id="similar-card">
+            <div class="section-title"><span class="dot"></span>相似商品推荐</div>
+            <div class="similar-grid" id="similar-images"></div>
+        </section>
+    </main>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('image-upload');
+        const previewWrap = document.getElementById('preview-wrap');
+        const imagePreview = document.getElementById('image-preview');
+        const fileName = document.getElementById('file-name');
+        const resetBtn = document.getElementById('reset-btn');
+
+        const btnDenoise = document.getElementById('denoising_button');
+        const btnClassify = document.getElementById('classification_button');
+        const btnSimilar = document.getElementById('similarity_button');
+
+        const denoiseCard = document.getElementById('denoise-card');
+        const imgOriginal = document.getElementById('img-original');
+        const imgNoised = document.getElementById('img-noised');
+        const imgDenoised = document.getElementById('img-denoised');
+        const resultText = document.getElementById('result-text');
+        const similarGrid = document.getElementById('similar-images');
+        const toast = document.getElementById('toast');
+
+        let originalBlob = null;     // 原始上传图片
+        let denoisedBlob = null;     // 去噪后的图片（分类/相似检索使用）
+        let toastTimer = null;
+
+        function showToast(msg) {
+            toast.textContent = msg;
+            toast.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.remove('show'), 2400);
+        }
+
+        function setButtonLoading(btn, loading) {
+            btn.classList.toggle('loading', loading);
+            btn.disabled = loading;
+        }
+
+        function dataUrlToBlob(dataUrl) {
+            const [meta, b64] = dataUrl.split(',');
+            const mime = meta.match(/:(.*?);/)[1];
+            const bin = atob(b64);
+            const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            return new Blob([bytes], { type: mime });
+        }
+
+        function loadImage(img, src) {
+            img.classList.remove('loaded');
+            img.src = src;
+            img.onload = () => img.classList.add('loaded');
+        }
+
+        // ---------- 选择/拖拽上传 ----------
+        function handleFile(file) {
+            if (!file || !file.type.startsWith('image/')) {
+                showToast('请选择图片文件');
+                return;
+            }
+            originalBlob = file;
+            fileName.textContent = file.name;
+            imagePreview.src = URL.createObjectURL(file);
+            previewWrap.classList.add('show');
+            btnDenoise.disabled = false;
+            // 分类与相似检索需要先去噪
+            denoisedBlob = null;
+            btnClassify.disabled = true;
+            btnSimilar.disabled = true;
+            showToast('图片已就绪，点击「图像去噪」开始');
+        }
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length) handleFile(fileInput.files[0]);
+        });
+
+        ['dragenter', 'dragover'].forEach(ev => dropzone.addEventListener(ev, e => {
+            e.preventDefault();
+            dropzone.classList.add('drag');
+        }));
+        ['dragleave', 'drop'].forEach(ev => dropzone.addEventListener(ev, e => {
+            e.preventDefault();
+            dropzone.classList.remove('drag');
+        }));
+        dropzone.addEventListener('drop', e => {
+            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+        });
+
+        resetBtn.addEventListener('click', () => {
+            fileInput.value = '';
+            originalBlob = null;
+            denoisedBlob = null;
+            previewWrap.classList.remove('show');
+            btnDenoise.disabled = false;
+            btnClassify.disabled = true;
+            btnSimilar.disabled = true;
+            denoiseCard.style.display = 'none';
+            resultText.textContent = '完成图像去噪后，点击「商品分类」查看识别结果';
+            resultText.classList.add('placeholder');
+            similarGrid.innerHTML = '';
+        });
+
+        // ---------- 去噪 ----------
+        btnDenoise.addEventListener('click', async () => {
+            if (!originalBlob) { showToast('请先上传图片'); return; }
+            setButtonLoading(btnDenoise, true);
+            try {
+                const res = await fetch('/denoising', { method: 'POST', body: originalBlob });
+                const data = await res.json();
+                denoiseCard.style.display = 'block';
+                loadImage(imgOriginal, imagePreview.src);
+                loadImage(imgNoised, 'data:image/png;base64,' + data.noisy_img);
+                loadImage(imgDenoised, 'data:image/png;base64,' + data.denoised_image);
+                denoisedBlob = dataUrlToBlob('data:image/png;base64,' + data.denoised_image);
+                btnClassify.disabled = false;
+                btnSimilar.disabled = false;
+                showToast('去噪完成');
+            } catch (err) {
+                console.error(err);
+                showToast('去噪失败，请重试');
+            } finally {
+                setButtonLoading(btnDenoise, false);
+            }
+        });
+
+        // ---------- 分类 ----------
+        btnClassify.addEventListener('click', async () => {
+            if (!denoisedBlob) { showToast('请先完成图像去噪'); return; }
+            setButtonLoading(btnClassify, true);
+            try {
+                const res = await fetch('/classification', { method: 'POST', body: denoisedBlob });
+                const text = await res.text();
+                resultText.textContent = text;
+                resultText.classList.remove('placeholder');
+                showToast('分类完成');
+            } catch (err) {
+                console.error(err);
+                showToast('分类失败，请重试');
+            } finally {
+                setButtonLoading(btnClassify, false);
+            }
+        });
+
+        // ---------- 相似检索 ----------
+        btnSimilar.addEventListener('click', async () => {
+            if (!denoisedBlob) { showToast('请先完成图像去噪'); return; }
+            setButtonLoading(btnSimilar, true);
+            try {
+                const res = await fetch('/simimages', { method: 'POST', body: denoisedBlob });
+                const data = await res.json();
+                similarGrid.innerHTML = '';
+                data.indices_list.forEach((index, i) => {
+                    const item = document.createElement('div');
+                    item.className = 'item';
+                    item.style.transitionDelay = (i * 70) + 'ms';
+                    const img = document.createElement('img');
+                    img.src = '/dataset/' + index + '.jpg';
+                    img.loading = 'lazy';
+                    img.onload = () => item.classList.add('reveal');
+                    img.onerror = () => item.classList.add('reveal');
+                    const tag = document.createElement('span');
+                    tag.className = 'tag';
+                    tag.textContent = '#' + index;
+                    item.appendChild(img);
+                    item.appendChild(tag);
+                    similarGrid.appendChild(item);
+                    // 兜底：即使图片未加载也触发入场动画
+                    setTimeout(() => item.classList.add('reveal'), 200 + i * 70);
+                });
+                showToast('找到 ' + data.indices_list.length + ' 个相似商品');
+            } catch (err) {
+                console.error(err);
+                showToast('检索失败，请重试');
+            } finally {
+                setButtonLoading(btnSimilar, false);
+            }
+        });
+    </script>
+</body>
+</html>
