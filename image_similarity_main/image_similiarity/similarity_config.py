@@ -21,4 +21,5 @@ CHROMA_INSERT_BATCH = 5000  # Chroma 限制单次插入数据不能超过 5000
 PACKAGE_NAME = "image_similarity"
 ENCODER_MODEL_NAME = "deep_encoder.pt"  # 编码器权重保存路径（需写权限）
 DECODER_MODEL_NAME = "deep_decoder.pt"  # 解码器权重保存路径（需写权限）
+CHROMA_COLLECTION_NAME = "image_similarity"
 CHROMA_BACKEND_PATH = "chroma_backend"  # 特征嵌入存储路径
