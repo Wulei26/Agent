@@ -1,2 +1,2 @@
 # Agent
-ecord the complete learning process of the agent.
+record the complete learning process of the agent.
