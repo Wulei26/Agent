@@ -24,10 +24,8 @@ Word2Vec 主要包含两种训练架构：
 
 GloVe
 FastText
-### 3.3 上下文动态词表示
-**ELMo、BERT、GPT / Transformer**
 
-# 应用Word2Vec词向量
+#### 应用Word2Vec词向量
 前面已经通过构建的词表和Word2Vec算法，得到了每个词的向量表达，但是Word2Vec 负责学习词向量，而 nn.Embedding 本质上是一个**可训练的查找表（Lookup Table）**，负责根据词的 ID 取出对应的词向量。由于我们前面通过已有的语料构建了词表，然后通过Word2Vec训练好了词向量，那么 Embedding 层并不需要重新生成这些词向量，而是可以直接加载已有的词向量，并在后续神经网络训练中选择是否继续更新它们。
 
 嵌入层的参数矩阵可以有两种典型的初始化方式：
@@ -87,7 +85,9 @@ def reset_parameters(self) -> None:
         embedding_matrix,  # 词向量矩阵，形状为(num_embeddigns,embedding_dim)
         freeze=False,  # 是否冻结词向量
     )
-
+    # freeze=False，加载预训练词向量作为初始值，并且在训练中允许它们被微调。
+    # freeze=True 词向量矩阵被冻结，训练时不会被更新，始终保持 from_pretrained 加载时的值。
+    
     # 4. 示例：将词索引转换为向量
     input_words = ["我", "喜欢", "乘坐", "地铁"]  # 分词后的句子
     input_indices = [word2index[word] for word in input_words]  # token转为索引
@@ -98,3 +98,8 @@ def reset_parameters(self) -> None:
 
     print(output.shape)  # 例如 torch.Size([1, 4, 100]
     ```
+### 3.3 上下文动态词表示
+**ELMo、BERT、GPT / Transformer**
+虽然像Word2Vec这样的模型已经能够为词语提供具有语义的向量表示，但是它只为每个词分配一个固定的向量表示，**不论它在句中出现的语境如何**。这种表示被称为静态词向量（static embeddings）
+上下文相关词表示（Contextual Word Representations），是指词语的向量表示会根据它所在的句子上下文动态变化，从而更好地捕捉其语义。一个具有代表性的模型是——ELMo。
+该模型全称为 Embeddings from Language Models，发表于2018年2月。其基于LSTM 语言模型，使用上下文动态生成每个词的表示，每个词的向量由其前文和后文共同决定，是第一个被广泛应用于下游任务的上下文词向量模型。
