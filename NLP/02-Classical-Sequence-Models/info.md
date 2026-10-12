@@ -36,6 +36,86 @@ $$
 
 ![alt text](rnn_Bidirectional.png)
 
-### 2.4 RNN 3.1.5多层+双向结构
+### 2.4 RNN多层+双向结构
 多层结构和双向结构还可组合使用，每层都是一个双向RNN
 ![alt text](rnn_multi_bidrectionary.png)
+
+各种结构的RNN代码实操：
+```python
+import torch
+import torch.nn as nn
+
+input = torch.randn(2, 4, 3)
+
+# 1.单层单向RNN
+rnn = nn.RNN(
+    input_size=3,
+    hidden_size=4,
+    num_layers=1,
+    batch_first=True,
+    bidirectional=False,
+)
+
+output, hn = rnn(input, None)
+print(output.shape) # torch.Size([2, 4, 4])
+print(hn.shape) # torch.Size([1, 2, 4])
+
+# 2.单层双向RNN
+rnn = nn.RNN(
+    input_size=3,
+    hidden_size=4,
+    num_layers=1,
+    batch_first=True,
+    bidirectional=True,
+)
+
+output, hn = rnn(input, None)
+print(output.shape) # torch.Size([2, 4, 8])
+print(hn.shape) # torch.Size([2, 2, 4])
+
+# 3.多层双向RNN
+rnn = nn.RNN(
+    input_size=3,
+    hidden_size=4,
+    num_layers=2,
+    batch_first=True,
+    bidirectional=True,
+)
+
+output, hn = rnn(input, None)
+print(output.shape) # torch.Size([2, 4, 8])
+print(hn.shape) # torch.Size([4, 2, 8])
+```
+
+案例实操：**智能输入法**
+本案例旨在实现一个用于手机输入法的智能词语联想模型。
+具体需求为：根据用户当前已输入的文本内容，预测下一个可能输入的词语，要求返回概率最高的 5 个候选词供用户选择。
+例如：向模型输入“自然语言”，模型输出[“处理”、“理解”、“的”、“描述”、“生成”] 
+本任务采用基于循环神经网络（RNN）的语言模型结构来实现“下一词预测”功能。模型整体由以下三个主要部分组成：
+1) **数据集**
+    在本任务中，模型需要根据用户已输入的文本预测下一个可能输入的词语，因此训练数据应具备自然语言上下文连续性和贴近真实使用场景的特点。
+    可选数据来源包括：
+    1. 用户真实输入内容：如聊天记录、搜索历史、输入法日志等。这类数据最能反映真实输入场景，有助于模型学习用户输入习惯和上下文联想模式。
+    2. 开放领域对话语料：如论坛回复、社交平台评论、闲聊对话等。这类语料具有较强的口语化特征，能够提升模型在真实输入场景中的泛化能力。
+    本任务使用的数据集为https://huggingface.co/datasets/Jax-dan/HundredCV-Chat 
+    为了构造适用于“下一词预测”任务的训练样本，首先需要对原始语料进行分词。随后，采用滑动窗口的方式，从分词后的序列中提取连续的上下文片段，并以每个窗口的下一个词作为预测目标，构成输入-输出对。
+2) **模型架构**
+![alt text](model_struct.png)
+    - 嵌入层（Embedding）
+    将输入的词或字索引映射为稠密向量表示，便于后续神经网络处理。
+    - 循环神经网络层（RNN）
+    用于建模输入序列的上下文信息，输出最后一个时间步的隐藏状态作为上下文表示。RNN输出的结果包含了一个词的上下文信息，然后再经过一个线性层，将这个词的隐藏特征映射到词表大小的线性层，就得到了下一个词的预测概率
+    - 输出层（Linear）
+    将隐藏状态映射到词表大小的维度，生成对下一个词的概率预测。
+3) **训练方案**
+    - 损失函数
+    下一个词的预测本质为多分类问题，所以损失函数采用 CrossEntropyLoss，其结合了softmax和交叉熵计算。
+    - 优化器
+    使用 Adam 优化器，具有较强的收敛能力和稳定性。
+
+提问：**经过RNN后我们得到了每个词元包含上下文信息的隐藏状态，为什么经过一个线性层和softmax之后就可以转换为下一个词的预测概率？**
+**答：** 注意看我们整个模型的训练过程，首先我对训练集的每个词元的嵌入表达进行随机初始化，然后经过RNN，然后再经过线性层。我们的训练目标是什么？就是**将一个窗口的下一个词作为目标**，经过损失函数之后优化嵌入矩阵。那么训练结束之后，损失收敛之后，这个模型就天然具备了预测能力，而是因为训练过程让 Linear 的每个输出位置学会了对应词语的预测规律。
+
+实现：
+![alt text](Directory_Tree.png)
+
