@@ -7,20 +7,13 @@ import jieba
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 from config import *
-
-
+from tokenizer import JiebaTokenizer
+tokenizer = JiebaTokenizer(VOCAB_DATA_FILE)
 # 定义函数：传入语料和word2id，构建数据集
 def build_dataset(sentences, word2id):
     dataset = []  # 字典对象的列表，保存每一对{input, target}
     # 1. 分词，id化：得到id列表（一句话）的列表
-    sentences_id = []
-
-    for sentence in sentences:
-        sentence_id = []
-        for token in jieba.lcut(sentence):
-            token_id = word2id.get(token, word2id[UNK_TOKEN])
-            sentence_id.append(token_id)
-        sentences_id.append(sentence_id)
+    sentences_id = [tokenizer.encode(sentence) for sentence in sentences ]
     # 2. 构建数据集，每个元素为 {'input':[id1, id2, id3, id4, id5], 'target': idt}
     for sentence_id_list in tqdm(sentences_id, desc="构建数据集"):
         # 遍历这句话的id列表
