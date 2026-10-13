@@ -34,7 +34,7 @@ def build_dataset(sentences, word2id):
 
 def preprocess_data(input_file):
 
-    df = pd.read_json(input_file, lines=True)
+    df = pd.read_json(input_file, lines=True).sample(frac=0.4)
     # print(df.head())、
     sentences = []
     for dialog in df["dialog"]:

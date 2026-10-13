@@ -51,4 +51,4 @@ def predict(text: str, K=5) -> list[str]:
 
 
 if __name__ == "__main__":
-    print(predict("我们公司开发了"))
+    print(predict("我们公司最近在尝试用"))
