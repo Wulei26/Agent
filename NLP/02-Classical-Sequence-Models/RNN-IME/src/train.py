@@ -1,8 +1,10 @@
+import time
 import torch
 import torch.nn as nn
 from tqdm import tqdm
 from model import IMEModel
 from torch.optim import Adam
+from torch.utils.tensorboard import SummaryWriter
 from dataset import get_dataloadr, get_vocab
 import config
 
@@ -43,7 +45,10 @@ def train():
     loss_fn = nn.CrossEntropyLoss()
     # 4. 定义优化器
     optimizer = Adam(model.parameters(), lr=config.LEARNING_RATE)
-    # 5.训练模型
+
+    # 5.定义一个写入器
+    writer = SummaryWriter(log_dir=config.LOG_DIR / time.strftime("%Y-%m-%d_%H-%M-%S"))
+    # 6.训练模型
     min_loss = float("inf")
     for epoch in range(config.EPOCHS):
         train_loss = train_one_epoch(
@@ -54,12 +59,14 @@ def train():
             optimizer=optimizer,
         )
         print(f"train loss: {train_loss} on Epoch { epoch + 1}")
+        writer.add_scalar("loss/train", train_loss, epoch)
         if train_loss < min_loss:
             state_dict = model.state_dict()
             torch.save(state_dict, config.BEST_MODEL)
             min_loss = train_loss
         else:
             print("损失未减小..不保存模型")
+    writer.close()
 
 
 if __name__ == "__main__":

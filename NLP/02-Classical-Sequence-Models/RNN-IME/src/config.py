@@ -6,7 +6,7 @@ DATA_DIR = ROOT_DIR / "data"
 PROCESSED_DIR = DATA_DIR / "processed"
 RAW_DIR = DATA_DIR / "raw"
 MODEL_DIR = ROOT_DIR / "models"
-
+LOG_DIR = ROOT_DIR / "logs"
 # 文件名
 RAW_DATA_FILE = RAW_DIR / "synthesized_.jsonl"
 TRAIN_DATA_FILE = PROCESSED_DIR / "train.jsonl"
