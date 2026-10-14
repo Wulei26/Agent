@@ -206,7 +206,7 @@ $$
 $$
 \frac{\partial h_t}{\partial h_{t-1}}
 =
-\operatorname{diag}\left(\tanh'(u_t)\right)W_h
+\mathrm{diag}\left(\tanh'(u_t)\right)W_h
 $$
 
 训练时采用时间反向传播（BPTT），最终损失传回早期隐藏状态的梯度，需要连续乘上这些局部导数：
