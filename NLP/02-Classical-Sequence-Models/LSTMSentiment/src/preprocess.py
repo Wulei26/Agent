@@ -15,7 +15,7 @@ def preprocess():
     raw_data = pd.read_csv(config.RAW_DATA_FILE,encoding="utf-8")
     # 数据清洗
     raw_data = raw_data.drop("cat",axis=1).dropna()
-
+    raw_data = raw_data[raw_data['review'].str.strip().ne('')]
     # 1. 直接开始划分数据集,注意这里要分层抽样，好评差评都要各自随机取0.2
     train_df , test_df = train_test_split(raw_data,test_size=config.TEST_RATE,stratify=raw_data["label"])
     # 2.直接构建词表
