@@ -221,6 +221,10 @@ $$
 
 因此，RNN 通常使用 **LSTM 或 GRU** 来改善长期依赖的学习，并通过**梯度裁剪**控制梯度爆炸。
 
-**下文中提到的LSTM就是为了解决RNN梯度消失或者梯度爆炸的问题的**
+**下文中提到的LSTM就是为了缓解RNN梯度消失或者梯度爆炸的问题的**
 
 # 二、LSTM （Long Short-Term Memory, LSTM）
+## 案例实操：训练一个模型对评论进行分类，分为好评还是差评
+![alt text](LSTM_multi_bidirection.png)
+
+由于LSTM输入的尺寸是(batch_size, seq_len, input_size) ,但是每条评论的长度不一致怎么办？ **通常设定一个固定长度，大于这个长度的文本进行截取，小于这个长度的使用某个特定token进行补齐**
