@@ -3,6 +3,7 @@ import jieba
 from model import IMEModel
 import config
 from dataset import get_vocab
+from tokenizer import JiebaTokenizer
 
 
 def _load_model(vocab_size, device):
@@ -32,21 +33,23 @@ def predict(text: str, K=5) -> list[str]:
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # 1.获取词表
-    vocab = get_vocab(config.VOCAB_DATA_FILE)
-    word2id = {word: id for id, word in enumerate(vocab)}
+    tokenizer = JiebaTokenizer.from_vocab(config.VOCAB_DATA_FILE)
+    # vocab = get_vocab(config.VOCAB_DATA_FILE)
+    # word2id = {word: id for id, word in enumerate(vocab)}
     # 2. 分词
-    token_lst = jieba.lcut(text)
-    token_id_lst = [word2id.get(i, word2id[config.UNK_TOKEN]) for i in token_lst]
+    # token_lst = jieba.lcut(text)
+    # token_id_lst = [word2id.get(i, word2id[config.UNK_TOKEN]) for i in token_lst]
+    token_id_lst = tokenizer.encode(text)
     # 3. 转化为 tensor
     inputs = torch.tensor(token_id_lst)  # 注意这里要增加一个batch维度
     inputs = inputs.unsqueeze(0).to(device)
     # 4.加载模型前项传播
-    model = _load_model(len(vocab), device)
+    model = _load_model(tokenizer.vocab_size, device)
 
     topk_ids = _process_topk(model, inputs, K=K)
     # 将id转为token
     # topk_ids = topk_ids.squeeze(0)
-    topk_tokens = [vocab[i] for i in topk_ids[0]]
+    topk_tokens = tokenizer.decode(topk_ids[0])
     return topk_tokens
 
 

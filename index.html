@@ -1,0 +1,1146 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#10131f" />
+  <title>Tensor Vista · 三维张量观察器</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f6f4ff;
+      --muted: #aaa9bc;
+      --soft: #77778c;
+      --panel: rgba(23, 25, 39, 0.82);
+      --panel-solid: #191b2a;
+      --line: rgba(255, 255, 255, 0.1);
+      --purple: #887cff;
+      --mint: #69e5c2;
+      --coral: #ff7c8a;
+      --bg: #0c0e17;
+      --shadow: 0 30px 80px rgba(0, 0, 0, 0.38);
+      --radius-xl: 30px;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 15% 10%, rgba(105, 229, 194, 0.09), transparent 26rem),
+        radial-gradient(circle at 92% 6%, rgba(136, 124, 255, 0.16), transparent 32rem),
+        radial-gradient(circle at 76% 92%, rgba(255, 124, 138, 0.08), transparent 26rem),
+        var(--bg);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.28;
+      background-image: linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+      background-size: 40px 40px;
+      mask-image: linear-gradient(to bottom, black, transparent 82%);
+    }
+
+    button, textarea, input { font: inherit; }
+    button { color: inherit; }
+
+    .app {
+      position: relative;
+      width: min(1520px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 26px 0 54px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 14px;
+      background: linear-gradient(145deg, rgba(136,124,255,.32), rgba(105,229,194,.12));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 10px 30px rgba(93,78,255,.2);
+    }
+
+    .brand-mark svg { width: 24px; height: 24px; }
+    .brand-name { font-size: 17px; font-weight: 760; letter-spacing: -.02em; }
+    .brand-sub { color: var(--soft); font-size: 11px; letter-spacing: .13em; text-transform: uppercase; margin-top: 2px; }
+
+    .local-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #c7c5d4;
+      font-size: 12px;
+      padding: 9px 13px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255,255,255,.035);
+    }
+
+    .local-badge::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--mint);
+      box-shadow: 0 0 14px rgba(105,229,194,.85);
+    }
+
+    .hero {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 30px;
+      margin-bottom: 28px;
+    }
+
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 13px;
+      color: var(--mint);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before { content: ""; width: 28px; height: 1px; background: currentColor; }
+
+    h1 {
+      max-width: 830px;
+      margin: 0;
+      font-size: clamp(34px, 4.4vw, 68px);
+      line-height: .98;
+      letter-spacing: -.055em;
+      font-weight: 760;
+    }
+
+    h1 span {
+      color: transparent;
+      background: linear-gradient(110deg, #fff 10%, #b5aaff 52%, #74e5c6 94%);
+      background-clip: text;
+      -webkit-background-clip: text;
+    }
+
+    .hero-copy {
+      max-width: 410px;
+      margin: 0 0 4px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 292px minmax(520px, 1fr) 300px;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      background: var(--panel);
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.045);
+      backdrop-filter: blur(22px);
+    }
+
+    .input-panel, .inspector-panel { padding: 22px; }
+
+    .panel-kicker {
+      color: var(--soft);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .17em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .panel-title {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: -.025em;
+    }
+
+    .panel-note {
+      margin: 7px 0 17px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    textarea {
+      width: 100%;
+      height: 267px;
+      resize: vertical;
+      outline: none;
+      padding: 15px;
+      color: #dedbea;
+      caret-color: var(--mint);
+      border: 1px solid rgba(255,255,255,.09);
+      border-radius: var(--radius-md);
+      background: rgba(6,8,15,.72);
+      font: 11px/1.55 "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      transition: border-color .25s, box-shadow .25s;
+    }
+
+    textarea:focus {
+      border-color: rgba(105,229,194,.52);
+      box-shadow: 0 0 0 4px rgba(105,229,194,.08);
+    }
+
+    .primary-btn, .ghost-btn, .mini-btn {
+      border: 0;
+      cursor: pointer;
+      transition: transform .18s ease, border-color .18s, background .18s, box-shadow .18s;
+    }
+
+    .primary-btn:active, .ghost-btn:active, .mini-btn:active { transform: scale(.97); }
+
+    .primary-btn {
+      width: 100%;
+      margin-top: 12px;
+      padding: 13px 16px;
+      border-radius: 14px;
+      color: #0e1020;
+      font-weight: 800;
+      background: linear-gradient(110deg, var(--mint), #a2f4de);
+      box-shadow: 0 12px 28px rgba(105,229,194,.15);
+    }
+
+    .primary-btn:hover { transform: translateY(-2px); box-shadow: 0 16px 34px rgba(105,229,194,.23); }
+
+    .preset-row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 9px; }
+
+    .ghost-btn {
+      padding: 10px 8px;
+      color: #c7c4d4;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255,255,255,.035);
+      font-size: 11px;
+    }
+
+    .ghost-btn:hover { border-color: rgba(136,124,255,.45); background: rgba(136,124,255,.09); }
+
+    .error-message {
+      min-height: 34px;
+      margin-top: 11px;
+      color: #ff9aa5;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .quick-guide {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid var(--line);
+    }
+
+    .guide-item { display: flex; gap: 10px; align-items: start; margin: 10px 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .guide-num { flex: 0 0 21px; height: 21px; display: grid; place-items: center; border-radius: 7px; color: var(--mint); background: rgba(105,229,194,.1); font-size: 10px; font-weight: 800; }
+
+    .visual-panel { min-width: 0; overflow: hidden; }
+
+    .visual-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 18px;
+      padding: 22px 24px 0;
+    }
+
+    .shape-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+    .shape-value { font-size: 24px; font-weight: 740; letter-spacing: -.04em; }
+    .shape-meta { color: var(--soft); font: 11px/1.4 "SFMono-Regular", Consolas, monospace; }
+
+    .mini-btn {
+      flex: 0 0 auto;
+      padding: 9px 12px;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255,255,255,.035);
+      font-size: 11px;
+    }
+
+    .mini-btn:hover { color: white; background: rgba(255,255,255,.07); }
+    .mini-btn.active { color: #0d1715; border-color: var(--mint); background: var(--mint); box-shadow: 0 8px 24px rgba(105,229,194,.18); }
+    .view-actions { display: flex; align-items: center; gap: 8px; }
+
+    .scene-shell {
+      position: relative;
+      height: 520px;
+      margin: 8px 14px 0;
+      border-radius: 22px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(136,124,255,.11), transparent 47%),
+        linear-gradient(180deg, rgba(7,9,17,.44), rgba(7,9,17,.76));
+    }
+
+    .scene-shell::after {
+      content: "";
+      position: absolute;
+      left: 10%; right: 10%; bottom: 34px;
+      height: 90px;
+      pointer-events: none;
+      border-radius: 50%;
+      background: rgba(0,0,0,.37);
+      filter: blur(28px);
+    }
+
+    #tensorSvg { position: relative; z-index: 1; width: 100%; height: 100%; display: block; }
+
+    .scene-label {
+      position: absolute;
+      z-index: 2;
+      left: 18px;
+      top: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: #bcb9cd;
+      background: rgba(12,14,23,.64);
+      font-size: 10px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      backdrop-filter: blur(12px);
+    }
+
+    .scene-label i { width: 7px; height: 7px; border-radius: 50%; background: var(--purple); box-shadow: 0 0 12px var(--purple); }
+
+    .axis-ruler {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 13px;
+      margin: 0 24px 23px;
+      padding: 13px 15px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(6,8,14,.46);
+      transition: border-color .25s, background .25s;
+    }
+
+    .axis-ruler.is-global { border-color: rgba(136,124,255,.26); background: rgba(136,124,255,.055); }
+    .axis-ruler.is-global .slice-index { color: #aaa2ff; }
+
+    .slice-caption { min-width: 98px; }
+    .slice-name { font-size: 11px; font-weight: 750; }
+    .slice-index { margin-top: 3px; color: var(--mint); font: 11px/1.2 "SFMono-Regular", Consolas, monospace; }
+
+    input[type="range"] {
+      width: 100%;
+      height: 4px;
+      appearance: none;
+      border-radius: 999px;
+      outline: none;
+      background: linear-gradient(90deg, var(--mint) 0 var(--range-fill, 0%), rgba(255,255,255,.12) var(--range-fill, 0%) 100%);
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      width: 17px; height: 17px;
+      appearance: none;
+      cursor: grab;
+      border: 3px solid #141622;
+      border-radius: 50%;
+      background: #dffff6;
+      box-shadow: 0 0 0 2px var(--mint), 0 4px 15px rgba(105,229,194,.4);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 13px; height: 13px;
+      cursor: grab;
+      border: 3px solid #141622;
+      border-radius: 50%;
+      background: #dffff6;
+      box-shadow: 0 0 0 2px var(--mint);
+    }
+
+    .range-ends { display: flex; gap: 12px; color: var(--soft); font: 10px/1 monospace; }
+
+    .inspector-panel { display: flex; flex-direction: column; }
+
+    .value-card {
+      position: relative;
+      overflow: hidden;
+      min-height: 155px;
+      margin-top: 3px;
+      padding: 18px;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 20px;
+      background: linear-gradient(145deg, rgba(136,124,255,.15), rgba(255,255,255,.025));
+    }
+
+    .value-card::after {
+      content: "";
+      position: absolute;
+      width: 130px; height: 130px;
+      right: -45px; top: -55px;
+      border-radius: 50%;
+      background: var(--selected-color, var(--purple));
+      opacity: .16;
+      filter: blur(4px);
+      transition: background .35s;
+    }
+
+    .value-label { color: var(--muted); font-size: 10px; letter-spacing: .13em; text-transform: uppercase; }
+    .value-number { margin: 8px 0 12px; font-size: 41px; font-weight: 760; letter-spacing: -.05em; }
+    .value-path { display: inline-flex; max-width: 100%; padding: 7px 9px; border-radius: 9px; color: #d6d2e6; background: rgba(0,0,0,.24); font: 10px/1.3 "SFMono-Regular", Consolas, monospace; overflow-wrap: anywhere; }
+
+    .section-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 22px 0 10px;
+      color: #d8d5e5;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .section-label small { color: var(--soft); font-size: 9px; font-weight: 500; }
+
+    .dimension-list { display: grid; gap: 8px; }
+
+    .dim-card {
+      display: grid;
+      grid-template-columns: 42px 1fr auto;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 10px;
+      cursor: pointer;
+      text-align: left;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,.025);
+      transition: transform .26s cubic-bezier(.2,.8,.2,1), border-color .25s, background .25s, padding .25s;
+    }
+
+    .dim-card:hover { transform: translateX(3px); border-color: rgba(136,124,255,.42); }
+    .dim-card.active { padding-top: 14px; padding-bottom: 14px; border-color: rgba(105,229,194,.42); background: linear-gradient(100deg, rgba(105,229,194,.1), rgba(136,124,255,.08)); }
+
+    .dim-name { width: 42px; height: 34px; display: grid; place-items: center; border-radius: 10px; color: #bcb3ff; background: rgba(136,124,255,.13); font: 700 11px/1 monospace; }
+    .dim-card.active .dim-name { color: #071510; background: var(--mint); }
+    .dim-desc strong { display: block; font-size: 11px; }
+    .dim-desc span { color: var(--soft); font-size: 9px; }
+    .dim-size { color: #e5e1ef; font: 14px/1 monospace; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; margin-top: auto; padding-top: 20px; }
+    .stat { padding: 10px 8px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.024); }
+    .stat span { display: block; margin-bottom: 5px; color: var(--soft); font-size: 8px; text-transform: uppercase; letter-spacing: .09em; }
+    .stat strong { display: block; overflow: hidden; color: #d9d6e6; font: 10px/1.3 monospace; text-overflow: ellipsis; }
+
+    .focus-panel {
+      grid-column: 2 / 4;
+      min-width: 0;
+      padding: 22px 24px 24px;
+    }
+
+    .focus-head { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
+    .focus-title-wrap { display: flex; align-items: center; gap: 12px; }
+    .focus-axis-badge { padding: 8px 10px; border-radius: 10px; color: #11131e; background: var(--mint); font: 800 11px/1 monospace; }
+    .focus-title { margin: 0; font-size: 18px; }
+    .focus-sub { margin: 4px 0 0; color: var(--soft); font-size: 10px; }
+
+    .uniform-note { display: flex; align-items: center; gap: 8px; color: var(--soft); font-size: 9px; }
+    .uniform-note i { width: 9px; height: 9px; border-radius: 3px; background: var(--purple); box-shadow: 0 0 12px rgba(136,124,255,.45); }
+
+    .focus-scroller {
+      overflow: auto;
+      padding: 3px 3px 10px;
+      scrollbar-color: rgba(136,124,255,.35) transparent;
+    }
+
+    .focus-grid {
+      display: grid;
+      gap: 8px;
+      width: max-content;
+      min-width: 100%;
+    }
+
+    .focus-cell {
+      position: relative;
+      min-width: 72px;
+      min-height: 62px;
+      overflow: hidden;
+      cursor: pointer;
+      border: 1px solid rgba(136,124,255,.27);
+      border-radius: 14px;
+      background: linear-gradient(145deg, rgba(136,124,255,.13), rgba(255,255,255,.025));
+      transition: transform .24s cubic-bezier(.2,.8,.2,1), border-color .2s, box-shadow .2s, background .2s;
+      animation: cellIn .45s both;
+      animation-delay: calc(var(--cell-order) * 12ms);
+    }
+
+    .focus-cell::after {
+      content: "";
+      position: absolute;
+      inset: auto -16px -24px auto;
+      width: 54px; height: 54px;
+      border-radius: 50%;
+      background: var(--purple);
+      opacity: .16;
+      filter: blur(2px);
+    }
+
+    .focus-cell:hover { z-index: 2; transform: translateY(-4px) scale(1.025); border-color: rgba(136,124,255,.72); box-shadow: 0 12px 24px rgba(0,0,0,.22); }
+    .focus-cell.selected { border-color: #fff; box-shadow: 0 0 0 2px var(--mint), 0 12px 28px rgba(0,0,0,.3); background: linear-gradient(145deg, rgba(105,229,194,.2), rgba(136,124,255,.1)); }
+    .cell-value { position: relative; z-index: 1; display: block; margin: 12px 10px 5px; color: #f6f5ff; font: 700 12px/1 monospace; }
+    .cell-index { position: relative; z-index: 1; display: block; margin: 0 10px 10px; color: rgba(255,255,255,.52); font: 8px/1.2 monospace; }
+
+    .voxel { cursor: pointer; outline: none; }
+    .voxel rect { vector-effect: non-scaling-stroke; transition: opacity .24s, stroke-width .24s, filter .24s, fill .24s; }
+    .voxel:hover rect { filter: brightness(1.22); }
+    .voxel.is-dimmed { opacity: .11; }
+    .voxel.is-plane rect { stroke: rgba(255,255,255,.72); stroke-width: 1.1; }
+    .voxel.is-selected rect { fill: #69e5c2; stroke: #fff; stroke-width: 2.5; filter: drop-shadow(0 0 7px rgba(105,229,194,.54)); }
+    .voxel text { pointer-events: none; font: 600 9px/1 monospace; fill: rgba(255,255,255,.82); text-anchor: middle; dominant-baseline: central; }
+    .matrix-plane { fill: rgba(16,18,31,.94); stroke: rgba(190,184,255,.34); stroke-width: 1.2; filter: drop-shadow(0 12px 18px rgba(0,0,0,.24)); }
+    .layer-tag { fill: rgba(220,216,255,.62); font: 700 9px/1 monospace; letter-spacing: .08em; }
+    .axis-line { stroke: rgba(255,255,255,.19); stroke-width: 1.3; stroke-dasharray: 4 5; }
+    .axis-text { fill: rgba(255,255,255,.48); font: 700 10px/1 monospace; letter-spacing: .1em; }
+
+    .toast {
+      position: fixed;
+      z-index: 20;
+      left: 50%;
+      bottom: 24px;
+      padding: 11px 16px;
+      pointer-events: none;
+      border: 1px solid rgba(105,229,194,.28);
+      border-radius: 999px;
+      color: #d8fff4;
+      background: rgba(14,20,25,.88);
+      box-shadow: 0 16px 40px rgba(0,0,0,.3);
+      backdrop-filter: blur(16px);
+      font-size: 11px;
+      opacity: 0;
+      transform: translate(-50%, 18px);
+      transition: opacity .25s, transform .25s;
+    }
+
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    @keyframes cellIn { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
+
+    @media (max-width: 1160px) {
+      .workspace { grid-template-columns: 270px minmax(500px, 1fr); }
+      .inspector-panel { grid-column: 1 / 2; grid-row: 2; }
+      .focus-panel { grid-column: 2; grid-row: 2; }
+      .hero { align-items: start; }
+    }
+
+    @media (max-width: 850px) {
+      .app { width: min(100% - 24px, 700px); padding-top: 16px; }
+      .hero { display: block; }
+      .hero-copy { margin-top: 18px; }
+      .workspace { grid-template-columns: 1fr; }
+      .input-panel, .visual-panel, .inspector-panel, .focus-panel { grid-column: 1; grid-row: auto; }
+      .scene-shell { height: 480px; }
+      .topbar { margin-bottom: 34px; }
+      textarea { height: 190px; }
+    }
+
+    @media (max-width: 520px) {
+      .local-badge { display: none; }
+      .scene-shell { height: 390px; margin-inline: 8px; }
+      .visual-head { padding-inline: 18px; }
+      .axis-ruler { grid-template-columns: 1fr; margin-inline: 18px; }
+      .range-ends { justify-content: space-between; }
+      .focus-head { display: block; }
+      .uniform-note { margin-top: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="m12 2.8 7.3 4.1v8.2L12 19.2l-7.3-4.1V6.9L12 2.8Z" stroke="currentColor" stroke-width="1.4"/>
+            <path d="m4.9 7 7.1 4 7.1-4M12 11v8" stroke="currentColor" stroke-width="1.4"/>
+            <circle cx="12" cy="11" r="1.7" fill="#69e5c2"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-name">Tensor Vista</div>
+          <div class="brand-sub">Spatial tensor explorer</div>
+        </div>
+      </div>
+      <div class="local-badge">本地运行 · 数据不会上传</div>
+    </header>
+
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Tensor, made tangible</p>
+        <h1>把抽象张量，变成<br><span>可以触摸的空间。</span></h1>
+      </div>
+      <p class="hero-copy">粘贴一个二维或三维数组，在堆叠空间中观察数值分布。滑动切片、点击维度聚焦，再点选任意数值读取它的完整索引。</p>
+    </section>
+
+    <section class="workspace">
+      <aside class="panel input-panel">
+        <div class="panel-kicker">01 · Data input</div>
+        <h2 class="panel-title">输入 Tensor</h2>
+        <p class="panel-note">支持规则的二维 / 三维 JSON 数组，元素必须是有限数值。</p>
+        <label for="tensorInput" class="panel-kicker" style="display:block;margin-bottom:8px">JSON Array</label>
+        <textarea id="tensorInput" spellcheck="false" aria-label="Tensor JSON 输入"></textarea>
+        <button id="loadBtn" class="primary-btn" type="button">生成可视化 →</button>
+        <div class="preset-row">
+          <button id="sample3dBtn" class="ghost-btn" type="button">载入 3D 示例</button>
+          <button id="sample2dBtn" class="ghost-btn" type="button">载入 2D 示例</button>
+          <button id="randomBtn" class="ghost-btn" type="button">随机化数值</button>
+          <button id="formatBtn" class="ghost-btn" type="button">格式化 JSON</button>
+        </div>
+        <div id="errorMessage" class="error-message" role="status"></div>
+        <div class="quick-guide">
+          <div class="panel-kicker">Quick guide</div>
+          <div class="guide-item"><span class="guide-num">1</span><span>默认显示完整矩阵堆栈；拖动滑杆后进入当前维度切片。</span></div>
+          <div class="guide-item"><span class="guide-num">2</span><span>点击右侧 D0 / D1 / D2，让对应截面放大。</span></div>
+          <div class="guide-item"><span class="guide-num">3</span><span>点击任意单元格，查看数值和完整索引。</span></div>
+        </div>
+      </aside>
+
+      <section class="panel visual-panel">
+        <div class="visual-head">
+          <div>
+            <div class="panel-kicker">02 · Spatial view</div>
+            <div class="shape-line">
+              <span id="shapeValue" class="shape-value">—</span>
+              <span id="shapeMeta" class="shape-meta">等待数据</span>
+            </div>
+          </div>
+          <div class="view-actions">
+            <button id="globalBtn" class="mini-btn active" type="button">全局视图</button>
+            <button id="resetBtn" class="mini-btn" type="button">复位</button>
+          </div>
+        </div>
+        <div class="scene-shell" id="sceneShell">
+          <div class="scene-label"><i></i><span id="sceneLabelText">3D STACK</span></div>
+          <svg id="tensorSvg" viewBox="0 0 900 560" role="img" aria-label="三维 Tensor 可视化"></svg>
+        </div>
+        <div id="axisRuler" class="axis-ruler is-global">
+          <div class="slice-caption">
+            <div id="sliceName" class="slice-name">D0 · 深度切片</div>
+            <div id="sliceIndex" class="slice-index">index 0</div>
+          </div>
+          <input id="sliceRange" type="range" min="0" max="0" value="0" step="1" aria-label="切片索引" />
+          <div class="range-ends"><span>0</span><span id="rangeMax">0</span></div>
+        </div>
+      </section>
+
+      <aside class="panel inspector-panel">
+        <div class="panel-kicker">03 · Inspector</div>
+        <h2 class="panel-title">坐标检查器</h2>
+        <p class="panel-note">选中的元素会在空间视图和放大截面中同步高亮。</p>
+        <div id="valueCard" class="value-card">
+          <div class="value-label">Selected value</div>
+          <div id="valueNumber" class="value-number">—</div>
+          <div id="valuePath" class="value-path">点击一个数值</div>
+        </div>
+
+        <div class="section-label"><span>维度透镜</span><small>点击以放大截面</small></div>
+        <div id="dimensionList" class="dimension-list"></div>
+
+        <div class="stats-grid">
+          <div class="stat"><span>Min</span><strong id="minStat">—</strong></div>
+          <div class="stat"><span>Mean</span><strong id="meanStat">—</strong></div>
+          <div class="stat"><span>Max</span><strong id="maxStat">—</strong></div>
+        </div>
+      </aside>
+
+      <section id="focusPanel" class="panel focus-panel">
+        <div class="focus-head">
+          <div class="focus-title-wrap">
+            <div id="focusAxisBadge" class="focus-axis-badge">D0</div>
+            <div>
+              <h2 class="focus-title">聚焦截面</h2>
+              <p id="focusSub" class="focus-sub">放大的二维切片</p>
+            </div>
+          </div>
+          <div class="uniform-note"><i></i><span>统一视觉编码 · 数值仅作标签</span></div>
+        </div>
+        <div class="focus-scroller">
+          <div id="focusGrid" class="focus-grid"></div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status"></div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const $ = (selector) => document.querySelector(selector);
+      const svgNS = 'http://www.w3.org/2000/svg';
+
+      const state = {
+        tensor: null,
+        shape: [],
+        flat: [],
+        min: 0,
+        max: 1,
+        mean: 0,
+        activeAxis: 0,
+        axisPositions: [0, 0, 0],
+        globalView: true,
+        selected: null,
+        renderFrame: 0
+      };
+
+      const axisNames3d = ['深度切片', '横向截面', '纵向截面'];
+      const axisNames2d = ['行向量', '列向量'];
+
+      const make3dSample = () => Array.from({ length: 4 }, (_, d) =>
+        Array.from({ length: 5 }, (_, r) =>
+          Array.from({ length: 6 }, (_, c) => Number((
+            Math.sin((d + 1) * .92 + c * .55) * 4.7 +
+            Math.cos(r * .84 - d * .42) * 3.2 +
+            d * 1.3 + r * .35
+          ).toFixed(2)))
+        )
+      );
+
+      const make2dSample = () => Array.from({ length: 7 }, (_, r) =>
+        Array.from({ length: 10 }, (_, c) => Number((
+          Math.sin(c * .72) * 5 + Math.cos(r * .8) * 3 + (r - c) * .18
+        ).toFixed(2)))
+      );
+
+      const input = $('#tensorInput');
+      input.value = JSON.stringify(make3dSample(), null, 2);
+
+      function inferShape(value, path = 'tensor') {
+        if (!Array.isArray(value)) {
+          if (typeof value !== 'number' || !Number.isFinite(value)) {
+            throw new Error(`${path} 不是有限数值`);
+          }
+          return [];
+        }
+        if (!value.length) throw new Error(`${path} 不能为空数组`);
+        const firstShape = inferShape(value[0], `${path}[0]`);
+        for (let i = 1; i < value.length; i++) {
+          const current = inferShape(value[i], `${path}[${i}]`);
+          if (current.join(',') !== firstShape.join(',')) {
+            throw new Error(`${path} 不是规则矩形数组（第 ${i} 项形状不同）`);
+          }
+        }
+        return [value.length, ...firstShape];
+      }
+
+      function flatten(value, out = []) {
+        if (Array.isArray(value)) value.forEach(item => flatten(item, out));
+        else out.push(value);
+        return out;
+      }
+
+      function parseInput(showToast = true) {
+        try {
+          const tensor = JSON.parse(input.value);
+          const shape = inferShape(tensor);
+          if (shape.length < 2 || shape.length > 3) throw new Error('仅支持二维或三维 Tensor');
+          const flat = flatten(tensor);
+          if (flat.length > 1600) throw new Error('为保证动画流畅，请将元素总数控制在 1600 以内');
+          if (shape.some(size => size > 40)) throw new Error('单个维度长度请不要超过 40');
+
+          state.tensor = tensor;
+          state.shape = shape;
+          state.flat = flat;
+          state.min = Math.min(...flat);
+          state.max = Math.max(...flat);
+          state.mean = flat.reduce((sum, value) => sum + value, 0) / flat.length;
+          state.activeAxis = 0;
+          state.axisPositions = shape.map(() => 0);
+          state.globalView = true;
+          state.selected = null;
+          $('#errorMessage').textContent = '';
+          renderAll();
+          if (showToast) toast(`已载入 ${shape.join(' × ')} Tensor`);
+        } catch (error) {
+          $('#errorMessage').textContent = `无法解析：${error.message}`;
+        }
+      }
+
+      function valueAt(indices) {
+        return indices.reduce((node, index) => node[index], state.tensor);
+      }
+
+      function formatNumber(value) {
+        if (!Number.isFinite(value)) return '—';
+        if (Math.abs(value) >= 1000 || (Math.abs(value) > 0 && Math.abs(value) < .001)) return value.toExponential(2);
+        return Number(value.toFixed(3)).toString();
+      }
+
+      function sameIndices(a, b) {
+        return a && b && a.length === b.length && a.every((value, i) => value === b[i]);
+      }
+
+      function svgElement(name, attributes = {}) {
+        const element = document.createElementNS(svgNS, name);
+        Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value));
+        return element;
+      }
+
+      function renderScene() {
+        const svg = $('#tensorSvg');
+        svg.replaceChildren();
+
+        const is3d = state.shape.length === 3;
+        const depth = is3d ? state.shape[0] : 1;
+        const rows = is3d ? state.shape[1] : state.shape[0];
+        const cols = is3d ? state.shape[2] : state.shape[1];
+        const depthStride = is3d ? .72 : 0;
+        const widthUnits = cols + Math.max(0, depth - 1) * depthStride;
+        const heightUnits = rows + Math.max(0, depth - 1) * depthStride;
+        const cellSize = Math.max(8, Math.min(52, 720 / Math.max(1, widthUnits), 400 / Math.max(1, heightUnits)));
+        const layerGap = cellSize * depthStride;
+        const matrixWidth = cols * cellSize;
+        const matrixHeight = rows * cellSize;
+        const totalWidth = matrixWidth + Math.max(0, depth - 1) * layerGap;
+        const totalHeight = matrixHeight + Math.max(0, depth - 1) * layerGap;
+        const stackLeft = 450 - totalWidth / 2;
+        const stackTop = 280 - totalHeight / 2;
+
+        // Back matrices are drawn first. D0 = 0 is drawn last, so it is the outermost layer.
+        let layerOrder = Array.from({ length: depth }, (_, i) => depth - 1 - i);
+        if (!state.globalView && is3d && state.activeAxis === 0) {
+          const activeLayer = state.axisPositions[0];
+          layerOrder = [...layerOrder.filter(index => index !== activeLayer), activeLayer];
+        }
+        layerOrder.forEach((d, layerVisualIndex) => {
+          const layerGroup = svgElement('g', { 'data-layer': d });
+          layerGroup.style.animation = `cellIn .48s ${layerVisualIndex * 35}ms both`;
+          const originX = stackLeft + d * layerGap;
+          const originY = stackTop + (depth - 1 - d) * layerGap;
+          const planeOpacity = state.globalView
+            ? .84
+            : (state.activeAxis === 0 ? (d === state.axisPositions[0] ? .9 : .08) : .16);
+          layerGroup.append(svgElement('rect', {
+            x: originX - 4,
+            y: originY - 4,
+            width: matrixWidth + 8,
+            height: matrixHeight + 8,
+            rx: Math.max(5, cellSize * .13),
+            opacity: planeOpacity,
+            class: 'matrix-plane'
+          }));
+          if (is3d) {
+            const layerTag = svgElement('text', { x: originX + 3, y: originY - 11, class: 'layer-tag' });
+            layerTag.textContent = `D0 = ${d}${d === 0 ? ' · OUTER' : ''}`;
+            layerGroup.append(layerTag);
+          }
+
+          const cells = [];
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) cells.push({ r, c });
+          }
+          cells.sort((a, b) => (a.r + a.c) - (b.r + b.c));
+
+          cells.forEach(({ r, c }) => {
+            const indices = is3d ? [d, r, c] : [r, c];
+            const value = valueAt(indices);
+            const cellGap = Math.max(1.2, cellSize * .055);
+            const x = originX + c * cellSize + cellGap / 2;
+            const y = originY + r * cellSize + cellGap / 2;
+            const inPlane = indices[state.activeAxis] === state.axisPositions[state.activeAxis];
+            const selected = sameIndices(indices, state.selected?.indices);
+            const group = svgElement('g', {
+              class: `voxel${!state.globalView && inPlane ? ' is-plane' : ''}${!state.globalView && !inPlane ? ' is-dimmed' : ''}${selected ? ' is-selected' : ''}`,
+              tabindex: '0',
+              role: 'button',
+              'aria-label': `索引 ${indices.join(', ')}，值 ${formatNumber(value)}`
+            });
+            group.append(svgElement('rect', {
+              x,
+              y,
+              width: Math.max(2, cellSize - cellGap),
+              height: Math.max(2, cellSize - cellGap),
+              rx: Math.max(2, cellSize * .08),
+              fill: '#887cff',
+              'fill-opacity': state.globalView ? '.78' : '.9',
+              stroke: 'rgba(218,214,255,.3)',
+              'stroke-width': '.7'
+            }));
+            if (cellSize > 27 && rows * cols <= 140 && (state.globalView || inPlane)) {
+              const text = svgElement('text', { x: x + cellSize / 2 - cellGap / 2, y: y + cellSize / 2 - cellGap / 2 });
+              text.textContent = formatNumber(value);
+              group.append(text);
+            }
+            const choose = () => selectCell(indices, value);
+            group.addEventListener('click', choose);
+            group.addEventListener('keydown', event => {
+              if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); choose(); }
+            });
+            layerGroup.append(group);
+          });
+          svg.append(layerGroup);
+        });
+
+        const axisBaseX = Math.max(55, stackLeft - 62);
+        const axisBaseY = Math.min(518, stackTop + totalHeight + 35);
+        const axisSpecs = is3d
+          ? [
+              { label: 'D2 · COL', x2: axisBaseX + 52, y2: axisBaseY },
+              { label: 'D1 · ROW', x2: axisBaseX, y2: axisBaseY + 31 },
+              { label: 'D0 · MATRIX', x2: axisBaseX + 37, y2: axisBaseY - 37 }
+            ]
+          : [
+              { label: 'D1 · COL', x2: axisBaseX + 52, y2: axisBaseY },
+              { label: 'D0 · ROW', x2: axisBaseX, y2: axisBaseY + 31 }
+            ];
+        axisSpecs.forEach(axis => {
+          svg.append(svgElement('line', { x1: axisBaseX, y1: axisBaseY, x2: axis.x2, y2: axis.y2, class: 'axis-line' }));
+          const text = svgElement('text', { x: axis.x2 + (axis.x2 > axisBaseX ? 8 : -17), y: axis.y2 + (axis.y2 < axisBaseY ? -7 : 12), class: 'axis-text' });
+          text.textContent = axis.label;
+          svg.append(text);
+        });
+
+        $('#sceneLabelText').textContent = is3d
+          ? (state.globalView ? 'MATRIX STACK · D0 OUTER' : `MATRIX STACK · SLICE D${state.activeAxis}`)
+          : (state.globalView ? '2D MATRIX · GLOBAL' : `2D SLICE · D${state.activeAxis}`);
+      }
+
+      function getFocusCells() {
+        const axis = state.activeAxis;
+        const index = state.axisPositions[axis];
+        const shape = state.shape;
+        const cells = [];
+        let rows;
+        let cols;
+
+        if (shape.length === 3) {
+          if (axis === 0) {
+            rows = shape[1]; cols = shape[2];
+            for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) cells.push({ row: r, col: c, indices: [index, r, c] });
+          } else if (axis === 1) {
+            rows = shape[0]; cols = shape[2];
+            for (let d = 0; d < rows; d++) for (let c = 0; c < cols; c++) cells.push({ row: d, col: c, indices: [d, index, c] });
+          } else {
+            rows = shape[0]; cols = shape[1];
+            for (let d = 0; d < rows; d++) for (let r = 0; r < cols; r++) cells.push({ row: d, col: r, indices: [d, r, index] });
+          }
+        } else {
+          if (axis === 0) {
+            rows = 1; cols = shape[1];
+            for (let c = 0; c < cols; c++) cells.push({ row: 0, col: c, indices: [index, c] });
+          } else {
+            rows = shape[0]; cols = 1;
+            for (let r = 0; r < rows; r++) cells.push({ row: r, col: 0, indices: [r, index] });
+          }
+        }
+        return { rows, cols, cells };
+      }
+
+      function renderFocusGrid() {
+        const { rows, cols, cells } = getFocusCells();
+        const grid = $('#focusGrid');
+        grid.replaceChildren();
+        grid.style.gridTemplateColumns = `repeat(${cols}, minmax(72px, 1fr))`;
+        cells.forEach((cell, order) => {
+          const value = valueAt(cell.indices);
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = `focus-cell${sameIndices(cell.indices, state.selected?.indices) ? ' selected' : ''}`;
+          button.style.setProperty('--cell-order', order);
+          button.setAttribute('aria-label', `索引 ${cell.indices.join(', ')}，值 ${formatNumber(value)}`);
+          const valueSpan = document.createElement('span');
+          valueSpan.className = 'cell-value';
+          valueSpan.textContent = formatNumber(value);
+          const indexSpan = document.createElement('span');
+          indexSpan.className = 'cell-index';
+          indexSpan.textContent = `[${cell.indices.join(', ')}]`;
+          button.append(valueSpan, indexSpan);
+          button.addEventListener('click', () => selectCell(cell.indices, value));
+          grid.append(button);
+        });
+        grid.style.gridTemplateRows = `repeat(${rows}, minmax(62px, auto))`;
+      }
+
+      function renderDimensions() {
+        const list = $('#dimensionList');
+        list.replaceChildren();
+        const names = state.shape.length === 3 ? axisNames3d : axisNames2d;
+        state.shape.forEach((size, axis) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = `dim-card${axis === state.activeAxis && !state.globalView ? ' active' : ''}`;
+          button.innerHTML = `
+            <span class="dim-name">D${axis}</span>
+            <span class="dim-desc"><strong>${names[axis]}</strong><span>${axis === state.activeAxis ? '当前已放大' : '点击切换截面'}</span></span>
+            <span class="dim-size">${size}</span>`;
+          button.addEventListener('click', () => {
+            state.activeAxis = axis;
+            if (state.selected) state.axisPositions[axis] = state.selected.indices[axis];
+            state.globalView = false;
+            renderAll(false);
+            const focus = $('#focusPanel');
+            focus.animate([
+              { transform: 'scale(.992)', borderColor: 'rgba(105,229,194,.48)' },
+              { transform: 'scale(1)', borderColor: 'rgba(255,255,255,.1)' }
+            ], { duration: 520, easing: 'cubic-bezier(.2,.8,.2,1)' });
+          });
+          list.append(button);
+        });
+      }
+
+      function renderControls() {
+        const axis = state.activeAxis;
+        const max = state.shape[axis] - 1;
+        const position = state.axisPositions[axis];
+        const range = $('#sliceRange');
+        range.max = max;
+        range.value = position;
+        range.style.setProperty('--range-fill', max ? `${position / max * 100}%` : '0%');
+        $('#axisRuler').classList.toggle('is-global', state.globalView);
+        $('#globalBtn').classList.toggle('active', state.globalView);
+        $('#rangeMax').textContent = max;
+        const names = state.shape.length === 3 ? axisNames3d : axisNames2d;
+        $('#sliceName').textContent = `D${axis} · ${names[axis]}`;
+        $('#sliceIndex').textContent = state.globalView ? '全局模式 · 拖动进入切片' : `index ${position}`;
+        $('#focusAxisBadge').textContent = `D${axis}`;
+        $('#focusSub').textContent = `固定 D${axis} = ${position} · ${getFocusCells().rows} × ${getFocusCells().cols} 放大截面`;
+      }
+
+      function renderInspector() {
+        const selected = state.selected;
+        if (selected) {
+          $('#valueNumber').textContent = formatNumber(selected.value);
+          $('#valuePath').textContent = `tensor[${selected.indices.join('][')}]`;
+          $('#valueCard').style.setProperty('--selected-color', 'var(--mint)');
+        } else {
+          $('#valueNumber').textContent = '—';
+          $('#valuePath').textContent = '点击一个数值';
+          $('#valueCard').style.setProperty('--selected-color', 'var(--purple)');
+        }
+        $('#minStat').textContent = formatNumber(state.min);
+        $('#meanStat').textContent = formatNumber(state.mean);
+        $('#maxStat').textContent = formatNumber(state.max);
+      }
+
+      function renderAll(full = true) {
+        $('#shapeValue').textContent = `[ ${state.shape.join(' × ')} ]`;
+        $('#shapeMeta').textContent = `${state.shape.length}D · ${state.flat.length} values`;
+        renderControls();
+        renderDimensions();
+        renderInspector();
+        renderScene();
+        renderFocusGrid();
+        if (full) $('#sceneShell').animate([
+          { opacity: .55, transform: 'translateY(8px)' },
+          { opacity: 1, transform: 'translateY(0)' }
+        ], { duration: 480, easing: 'cubic-bezier(.2,.8,.2,1)' });
+      }
+
+      function selectCell(indices, value) {
+        state.selected = { indices: [...indices], value };
+        indices.forEach((index, axis) => { state.axisPositions[axis] = index; });
+        renderInspector();
+        renderControls();
+        renderScene();
+        renderFocusGrid();
+        toast(`索引 [${indices.join(', ')}] · 值 ${formatNumber(value)}`);
+      }
+
+      function toast(message) {
+        const element = $('#toast');
+        element.textContent = message;
+        element.classList.add('show');
+        clearTimeout(toast.timer);
+        toast.timer = setTimeout(() => element.classList.remove('show'), 1600);
+      }
+
+      function loadSample(factory) {
+        input.value = JSON.stringify(factory(), null, 2);
+        parseInput();
+      }
+
+      function mapTensor(node, fn, indices = []) {
+        if (Array.isArray(node)) return node.map((child, index) => mapTensor(child, fn, [...indices, index]));
+        return fn(node, indices);
+      }
+
+      $('#loadBtn').addEventListener('click', () => parseInput());
+      $('#sample3dBtn').addEventListener('click', () => loadSample(make3dSample));
+      $('#sample2dBtn').addEventListener('click', () => loadSample(make2dSample));
+      $('#formatBtn').addEventListener('click', () => {
+        try {
+          input.value = JSON.stringify(JSON.parse(input.value), null, 2);
+          $('#errorMessage').textContent = '';
+          toast('JSON 已格式化');
+        } catch (error) {
+          $('#errorMessage').textContent = `无法格式化：${error.message}`;
+        }
+      });
+      $('#randomBtn').addEventListener('click', () => {
+        if (!state.tensor) return;
+        const randomized = mapTensor(state.tensor, (value, indices) => Number((
+          value * .28 + Math.sin(indices.reduce((a, b) => a + b + 1, 0) * 1.7) * 5 + (Math.random() - .5) * 7
+        ).toFixed(2)));
+        input.value = JSON.stringify(randomized, null, 2);
+        parseInput(false);
+        toast('已生成一组新数值');
+      });
+      $('#resetBtn').addEventListener('click', () => {
+        state.activeAxis = 0;
+        state.axisPositions = state.shape.map(() => 0);
+        state.globalView = true;
+        state.selected = null;
+        renderAll(false);
+        toast('视图已复位');
+      });
+      $('#globalBtn').addEventListener('click', () => {
+        state.globalView = true;
+        renderAll(false);
+        toast('已切换到完整矩阵堆栈');
+      });
+      $('#sliceRange').addEventListener('input', event => {
+        state.globalView = false;
+        state.axisPositions[state.activeAxis] = Number(event.target.value);
+        cancelAnimationFrame(state.renderFrame);
+        state.renderFrame = requestAnimationFrame(() => {
+          renderControls();
+          renderScene();
+          renderFocusGrid();
+        });
+      });
+      input.addEventListener('keydown', event => {
+        if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') parseInput();
+      });
+
+      parseInput(false);
+    })();
+  </script>
+</body>
+</html>
