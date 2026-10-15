@@ -38,7 +38,7 @@ def collate_fn(data_list: List[Tuple[torch.Tensor, torch.Tensor]]) -> Tuple[List
     return input_tensor, target_tensor
 
 
-def get_dataloadr(train: bool = True):
+def get_dataloader(train: bool = True):
     file_path = config.TRAIN_DATA_FILE if train else config.TEST_DATA_FILE
     dataset = Translatordataset(file_path)
     # 创建dataloader,自定义 collate_fn ，将 input进行截取或者填充，到指定长度
@@ -53,11 +53,11 @@ def get_dataloadr(train: bool = True):
 
 
 if __name__ == "__main__":
-    dataloader = get_dataloadr(True)
+    dataloader = get_dataloader(True)
     print(len(dataloader))
     for input, target in dataloader:
         print(input.size(), target.size())
         print(input)
         break
-    dataloader = get_dataloadr(False)
+    dataloader = get_dataloader(False)
     print(len(dataloader))
