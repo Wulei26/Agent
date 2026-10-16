@@ -1,10 +1,11 @@
 import torch
 from model import TranslatorModel
 import config
-from tokenizer import Tokenizer,ChineseTokenizer, EnglishTokenizer
+from tokenizer import Tokenizer, ChineseTokenizer, EnglishTokenizer
+
 
 # 预测核心逻辑：自回归生成 -> 模型前向传播，得到一批数据的预测概率
-def predict_batch(model:TranslatorModel, inputs, tokenizer:Tokenizer, device):
+def predict_batch(model: TranslatorModel, inputs, tokenizer: Tokenizer, device):
     model.eval()
     model.to(device)
     # 1. 自回归生成
@@ -22,7 +23,7 @@ def predict_batch(model:TranslatorModel, inputs, tokenizer:Tokenizer, device):
         is_finished = torch.full([batch_size], False).to(device)
         for i in range(config.SEQ_LEN):
             # 2.2.1 解码器向前传播，现在拿到了每个时间步的初始隐状态(context_vector)，第一个时间步的输入(decoder_input)
-            decoder_output,decoder_hidden = model.decoder(decoder_input,context_vector)
+            decoder_output, context_vector = model.decoder(decoder_input, context_vector)
             # 2.2.2 贪心解码：预测下一时间步的词id，(N, 1)
             next_token_ids = torch.argmax(decoder_output, dim=-1)
             # 2.2.3 保存到列表
@@ -30,7 +31,7 @@ def predict_batch(model:TranslatorModel, inputs, tokenizer:Tokenizer, device):
             # 2.2.4 更新输入，将输出预测词id作为下一时间步输入
             decoder_input = next_token_ids
             # 2.3.5 判断序列生成是否结束
-            is_finished |= (next_token_ids.squeeze(1) == tokenizer.end_token_index)
+            is_finished |= next_token_ids.squeeze(1) == tokenizer.end_token_index
             if is_finished.all():
                 break
         # 自回归生成结束，得到(N, 1)形状张量的列表
@@ -44,7 +45,8 @@ def predict_batch(model:TranslatorModel, inputs, tokenizer:Tokenizer, device):
         if tokenizer.end_token_index in sentence_id:
             eos_index = sentence_id.index(tokenizer.end_token_index)
             generated_list[index] = sentence_id[:eos_index]
-    return generated_list    # 返回id列表的列表
+    return generated_list  # 返回id列表的列表
+
 
 # 预测函数：传入一串文本，得到接下来最可能的5个词
 def predict(text, model, input_tokenizer, target_tokenizer, device):
@@ -63,6 +65,7 @@ def predict(text, model, input_tokenizer, target_tokenizer, device):
 
     return sentence
 
+
 # 调用预测逻辑的应用程序
 def run_predict():
     # 1. 定义设备
@@ -74,9 +77,13 @@ def run_predict():
     print("词表加载成功！")
 
     # 3. 加载模型
-    model = TranslatorModel(input_vocab_size=zh_tokenizer.vocab_size, input_padding_idx=zh_tokenizer.pad_token_index,
-                             target_vocab_size=en_tokenizer.vocab_size, target_padding_idx=en_tokenizer.pad_token_index).to(device)
-    state_dict = torch.load(config.BEST_MODEL,map_location=device)
+    model = TranslatorModel(
+        input_vocab_size=zh_tokenizer.vocab_size,
+        input_padding_idx=zh_tokenizer.pad_token_index,
+        target_vocab_size=en_tokenizer.vocab_size,
+        target_padding_idx=en_tokenizer.pad_token_index,
+    ).to(device)
+    state_dict = torch.load(config.BEST_MODEL, map_location=device)
     model.load_state_dict(state_dict)
     print("模型加载成功！")
 
@@ -88,7 +95,7 @@ def run_predict():
         user_input_text = input("中文：")
 
         # 如果是 quit 或者 q，就退出
-        if user_input_text in ['q', 'quit']:
+        if user_input_text in ["q", "quit"]:
             print("欢迎下次使用！")
             break
 
@@ -103,5 +110,5 @@ def run_predict():
         print("英文：", result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     run_predict()
