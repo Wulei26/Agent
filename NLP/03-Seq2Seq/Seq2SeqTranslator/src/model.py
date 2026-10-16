@@ -25,10 +25,9 @@ class TranslatorEncoder(nn.Module):
         self.encoder = nn.GRU(
             input_size=config.EMBEDDING_DIM,
             hidden_size=config.HIDDEN_SIZE,
-            bidirectional=False,
+            bidirectional=True,
             batch_first=True,
         )
-
 
     def forward(self, x):
         # # x：(N, SEQ_LEN)
@@ -74,7 +73,7 @@ class TranslatorDecoder(nn.Module):
         # 输出 hn：(1, N, HIDDEN_SIZE)
         self.decoder = nn.GRU(
             input_size=config.EMBEDDING_DIM,
-            hidden_size=config.HIDDEN_SIZE,
+            hidden_size=config.HIDDEN_SIZE * 2,
             bidirectional=False,
             batch_first=True,
         )
@@ -82,10 +81,9 @@ class TranslatorDecoder(nn.Module):
         # 输入：(N, SEQ_LEN, HIDDEN_SIZE)
         # 输出：(N, SEQ_LEN, V_tgt) V_tgt：目标语言词表大小
         self.linear = nn.Linear(
-            in_features=config.HIDDEN_SIZE,
+            in_features=config.HIDDEN_SIZE * 2,
             out_features=vocab_size,
         )
-
 
     def forward(self, x, context_vector):
         """
